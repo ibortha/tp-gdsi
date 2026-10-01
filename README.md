@@ -24,6 +24,8 @@ US01–US12 y las métricas del Scope Canvas.
 | ![Comandas](docs/img/21-comandas.jpg) | ![QR](docs/img/24-qr.jpg) |
 | Comandas tipo ticket | Habladores de mesa con QR, listos para imprimir |
 
+![Métricas de consumo](docs/img/27-consumo.jpg)
+
 **Diseño.** La cuenta compartida es un ticket vivo: bordes troquelados, montos en serif (Instrument Serif), interfaz en
 Schibsted Grotesk y etiquetas en DM Mono, sobre una paleta tinta/papel con un único acento. Los estados no dependen solo
 del color: rayado = reservado por otro, puntos = en la división. Íconos Phosphor, animaciones con Motion, hojas
