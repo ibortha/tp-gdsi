@@ -11,6 +11,9 @@ Arriba de todo hay una barra roja de **Demo** con un selector **"Ver como"**:
   compartida y pagar por ítems (entero, ½, ⅓) o dividir el total.
 - **Sentarme en la mesa (libre)**: entrar como un comensal nuevo, como si escanearas el QR.
 - **Mozo / ADMIN**: el panel del local (salón, comandas, cobros con Posnet, carta, mesas y QR, métricas).
+- **ADMIN · Salón**: el plano del local con 16 mesas — **Salón** y **Patio** en planta baja y el **2do piso** —, con
+  el número de cada mesa, las sillas ocupadas y su estado (libre, ocupada, pagando, pide Posnet, saldada). El botón
+  **Mapa / Tabla** cambia entre el plano y la vista en tarjetas (que además permite ver todos los sectores juntos).
 - **ADMIN · Métricas → Consumo**: lo más pedido, pedidos por horario, medios de pago, personas por mesa y un
   resumen por mesa, con una semana de datos de prueba.
 - **Reiniciar** (↺): vuelve a los datos de prueba originales.
