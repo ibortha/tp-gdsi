@@ -1,25 +1,40 @@
+import { ArrowRight, Check, CheckCircle, Hourglass, Lock, Plus, Receipt } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
-import type { Denominator, DinerDTO, OrderItemDTO, PaymentDTO, PortionDTO, UnitDTO } from '../../../shared/types.ts';
-import { Avatar, Empty, Stepper, useAction } from '../components/ui.tsx';
-import { FRACTION_LABEL, METHOD_LABEL, countdown, money, plural } from '../lib/format.ts';
+import type { Denominator, OrderItemDTO, PaymentDTO, PortionDTO, UnitDTO } from '../../../shared/types.ts';
+import {
+  Avatar,
+  BigStepper,
+  CountdownRing,
+  Donut,
+  Empty,
+  Money,
+  Segmented,
+  Stepper,
+  useAction,
+} from '../components/ui.tsx';
+import { METHOD_LABEL, clock, money, plural } from '../lib/format.ts';
 import { useNow } from '../lib/hooks.ts';
+import type { Person } from '../lib/tones.ts';
 import { Checkout } from './Checkout.tsx';
-import { BillSummaryCard } from './TableTab.tsx';
+import { BillMeter } from './TableTab.tsx';
 import type { DinerSession } from './useDinerSession.ts';
 
 type Mode = 'items' | 'split';
 
 const inProgress = (p: PaymentDTO) => p.status === 'RESERVED' || p.status === 'AWAITING_POSNET';
+const FRACTION: Record<Denominator, string> = { 1: 'Entero', 2: '½', 3: '⅓' };
 
 export function PayTab({
   session,
   me,
-  diners,
+  people,
   onGoToMenu,
 }: {
   session: DinerSession;
   me: string;
-  diners: Map<string, DinerDTO>;
+  people: Map<string, Person>;
   onGoToMenu: () => void;
 }) {
   const snapshot = session.snapshot!;
@@ -36,21 +51,22 @@ export function PayTab({
     if (current) setMode(current.kind === 'SPLIT' ? 'split' : 'items');
   }, [current?.id, current?.kind]);
 
-  // Seguimiento del pago que está en la pantalla de checkout (también cuando lo confirma el mozo con el Posnet).
+  // Sigue el pago que está en el checkout (también cuando lo confirma el mozo con el Posnet).
   const watched = checkoutId ? snapshot.payments.find((p) => p.id === checkoutId) : undefined;
   useEffect(() => {
     if (!watched) return;
     if (watched.status === 'PAID') {
       setPaidId(watched.id);
       setCheckoutId(null);
-    } else if (!inProgress(watched)) {
-      setCheckoutId(null);
-    }
+    } else if (!inProgress(watched)) setCheckoutId(null);
   }, [watched?.id, watched?.status]);
 
   if (paidId) {
     const paid = snapshot.payments.find((p) => p.id === paidId);
-    if (paid) return <PaidScreen payment={paid} name={diners.get(me)?.name ?? ''} outstanding={snapshot.bill.outstanding} onDone={() => setPaidId(null)} />;
+    if (paid)
+      return (
+        <PaidScreen payment={paid} name={people.get(me)?.name ?? ''} outstanding={snapshot.bill.outstanding} onDone={() => setPaidId(null)} />
+      );
   }
 
   if (current && (checkoutId === current.id || current.status === 'AWAITING_POSNET')) {
@@ -67,106 +83,130 @@ export function PayTab({
     );
   }
 
-  const nothingToPay = snapshot.bill.total === 0;
+  const { bill } = snapshot;
 
   return (
-    <main className={`diner-main${current ? ' has-floating' : ''}`}>
-      {expired && <ExpiredBanner session={session} payment={expired} onPaid={setPaidId} />}
+    <main className={clsx('d-main', current && 'has-dock')}>
+      <section className="page-head">
+        <span className="eyebrow">Pagar</span>
+        <h1 className="display page-title">
+          ¿Qué <em>pagás</em> vos?
+        </h1>
+      </section>
 
-      <BillSummaryCard snapshot={snapshot} />
+      {expired && <ExpiredNotice session={session} payment={expired} onPaid={setPaidId} />}
 
-      {nothingToPay ? (
-        <div className="card">
-          <Empty emoji="🍺" title="Todavía no hay nada para pagar">
-            <button className="link-btn" onClick={onGoToMenu}>
-              Ir al menú
-            </button>
-          </Empty>
-        </div>
-      ) : snapshot.bill.outstanding === 0 ? (
-        <div className="banner banner-ok">
-          <span className="banner-icon">🎉</span>
-          <div>
-            <h3>¡No queda nada por pagar!</h3>
-            <p className="small">La mesa está saldada.</p>
+      {bill.total === 0 ? (
+        <Empty icon={<Receipt size={24} />} title="Todavía no hay cuenta">
+          <button className="text-btn" onClick={onGoToMenu}>
+            Ir a la carta
+          </button>
+        </Empty>
+      ) : bill.outstanding === 0 ? (
+        <div className="notice notice--ok">
+          <span className="notice__icon">
+            <CheckCircle size={22} weight="fill" />
+          </span>
+          <div className="stack stack-1">
+            <h3>La mesa está saldada</h3>
+            <p className="small muted">No queda nada por pagar. Si piden algo más, aparece acá.</p>
           </div>
         </div>
       ) : (
         <>
-          <div className="seg" role="group" aria-label="Cómo querés pagar">
-            <button aria-pressed={mode === 'items'} onClick={() => setMode('items')}>
-              Elegir ítems
-            </button>
-            <button aria-pressed={mode === 'split'} onClick={() => setMode('split')}>
-              Dividir el total
-            </button>
+          <div className="card card--pad stack stack-4">
+            <div className="between" style={{ alignItems: 'baseline' }}>
+              <span className="eyebrow">Saldo pendiente</span>
+              <strong className="display" style={{ fontSize: 30 }}>
+                <Money cents={bill.outstanding} />
+              </strong>
+            </div>
+            <BillMeter snapshot={snapshot} />
           </div>
-          {mode === 'items' ? (
-            <ItemsMode session={session} me={me} diners={diners} current={current} />
-          ) : (
-            <SplitMode session={session} me={me} diners={diners} current={current} />
-          )}
+          <Segmented<Mode>
+            label="Cómo querés pagar"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'items', label: 'Por ítems' },
+              { value: 'split', label: 'Dividir el total' },
+            ]}
+          />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, x: mode === 'items' ? -12 : 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {mode === 'items' ? (
+                <ItemsMode session={session} me={me} people={people} current={current} />
+              ) : (
+                <SplitMode session={session} me={me} people={people} current={current} />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </>
       )}
 
-      {current && <SelectionBar session={session} payment={current} onContinue={() => setCheckoutId(current.id)} />}
+      <AnimatePresence>
+        {current && <SelectionDock key="dock" session={session} payment={current} onContinue={() => setCheckoutId(current.id)} />}
+      </AnimatePresence>
     </main>
   );
 }
 
-// ---------- Barra con la selección en curso y la cuenta regresiva ----------
+// ---------- Dock con lo reservado y la cuenta regresiva ----------
 
-function SelectionBar({ session, payment, onContinue }: { session: DinerSession; payment: PaymentDTO; onContinue: () => void }) {
+function SelectionDock({ session, payment, onContinue }: { session: DinerSession; payment: PaymentDTO; onContinue: () => void }) {
   const now = useNow(250);
   const ttl = (session.venue?.reservationTtlSec ?? 60) * 1000;
   const remaining = payment.expiresAt
     ? Math.min(ttl, Date.parse(payment.expiresAt) - (now + (session.serverNow() - Date.now())))
     : null;
   const what =
-    payment.kind === 'SPLIT'
-      ? plural(payment.shareIndices.length, 'parte', 'partes')
-      : plural(payment.claims.length, 'porción', 'porciones');
+    payment.kind === 'SPLIT' ? plural(payment.shareIndices.length, 'parte', 'partes') : plural(payment.claims.length, 'porción', 'porciones');
   return (
-    <div className="floating-bar">
-      <div className="selection-bar">
-        <div className="grow stack-sm" style={{ gap: 2 }}>
-          <span className="small" style={{ opacity: 0.75 }}>
-            Reservaste {what}
-          </span>
-          <strong className="num" style={{ fontSize: '1.15rem' }}>
-            {money(payment.amount)}
-          </strong>
-        </div>
-        {remaining !== null && (
-          <span className={`timer${remaining < 15000 ? ' urgent' : ''}`} aria-label="Tiempo de reserva">
-            ⏱ {countdown(remaining)}
-          </span>
-        )}
-        <button className="btn btn-primary" onClick={onContinue}>
-          Pagar →
-        </button>
+    <motion.div
+      className="dock dock--select"
+      initial={{ y: 90, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: 90, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+    >
+      {remaining !== null && <CountdownRing remainingMs={remaining} totalMs={ttl} />}
+      <div className="grow stack" style={{ gap: 0 }}>
+        <span className="dock__label">Reservaste {what}</span>
+        <Money cents={payment.amount} className="dock__amount" />
       </div>
-    </div>
+      <button className="btn btn--accent" onClick={onContinue}>
+        Pagar
+        <ArrowRight size={18} weight="bold" />
+      </button>
+    </motion.div>
   );
 }
 
-function ExpiredBanner({ session, payment, onPaid }: { session: DinerSession; payment: PaymentDTO; onPaid: (id: string) => void }) {
+function ExpiredNotice({ session, payment, onPaid }: { session: DinerSession; payment: PaymentDTO; onPaid: (id: string) => void }) {
   const { run, busy } = useAction();
   const declared = payment.method === 'MERCADO_PAGO' || payment.method === 'QR';
   return (
-    <div className="banner banner-warn">
-      <span className="banner-icon">⌛</span>
-      <div className="grow stack-sm">
-        <h3>Tu reserva de {money(payment.amount)} venció</h3>
-        <p className="small">
+    <motion.div className="notice notice--warn" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+      <span className="notice__icon">
+        <Hourglass size={20} weight="duotone" />
+      </span>
+      <div className="stack stack-2">
+        <h3>Se venció tu reserva de {money(payment.amount)}</h3>
+        <p className="small muted">
           {declared
-            ? `Pasó el tiempo sin que confirmes el pago con ${METHOD_LABEL[payment.method!]}. Si ya pagaste, tocá "Ya pagué": lo registramos si nadie más tomó esas porciones.`
-            : 'Se liberó para que otra persona de la mesa pueda tomarla. Podés volver a elegir.'}
+            ? `Si ya pagaste con ${METHOD_LABEL[payment.method!]}, confirmalo: lo registramos si nadie tomó esas porciones.`
+            : 'Lo liberamos para el resto de la mesa. Podés volver a elegir.'}
         </p>
-        <div className="row wrap">
+        <div className="row wrap" style={{ marginTop: 4 }}>
           {declared && (
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn--ink btn--sm"
               disabled={busy}
               onClick={() =>
                 run(async () => {
@@ -178,43 +218,40 @@ function ExpiredBanner({ session, payment, onPaid }: { session: DinerSession; pa
               Ya pagué
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => run(() => session.act(`/api/diner/payments/${payment.id}/cancel`))}>
-            {declared ? 'No pagué, descartar' : 'Entendido'}
+          <button className="btn btn--ghost btn--sm" disabled={busy} onClick={() => run(() => session.act(`/api/diner/payments/${payment.id}/cancel`))}>
+            {declared ? 'No pagué' : 'Entendido'}
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-// ---------- Modo "Elegir ítems" ----------
+// ---------- Por ítems ----------
 
 function ItemsMode({
   session,
   me,
-  diners,
+  people,
   current,
 }: {
   session: DinerSession;
   me: string;
-  diners: Map<string, DinerDTO>;
+  people: Map<string, Person>;
   current: PaymentDTO | undefined;
 }) {
   const snapshot = session.snapshot!;
   const { run, busy } = useAction();
   const [showPaid, setShowPaid] = useState(false);
-  const blocked = current && (current.kind !== 'ITEMS' || current.status === 'AWAITING_POSNET');
+  const blocked = !!current && (current.kind !== 'ITEMS' || current.status === 'AWAITING_POSNET');
 
   const payments = useMemo(() => new Map(snapshot.payments.map((p) => [p.id, p])), [snapshot.payments]);
   const billable = snapshot.items.filter((i) => i.status !== 'CANCELLED');
-  const unitIsDone = (u: UnitDTO) => u.denominator !== null && u.portions.every((p) => p.state === 'PAID');
-  const unitIsFree = (u: UnitDTO) => u.denominator === null || u.portions.some((p) => p.state === 'AVAILABLE');
-  const pendingItems = billable.filter((i) => i.units.some((u) => !unitIsDone(u)));
-  const paidUnits = billable.flatMap((i) => i.units.filter(unitIsDone).map((u) => ({ item: i, unit: u })));
-
-  // Atajos para "agrupar": tomar todo lo libre de lo que pidió cada persona.
-  const groupable = snapshot.diners.filter((d) => billable.some((i) => i.dinerId === d.id && i.units.some(unitIsFree)));
-  const claimOf = (dinerId: string) => run(() => session.act(`/api/diner/claims/of/${dinerId}`));
+  const isDone = (u: UnitDTO) => u.denominator !== null && u.portions.every((p) => p.state === 'PAID');
+  const isFree = (u: UnitDTO) => u.denominator === null || u.portions.some((p) => p.state === 'AVAILABLE');
+  const pending = billable.flatMap((item) => item.units.filter((u) => !isDone(u)).map((unit) => ({ item, unit })));
+  const done = billable.flatMap((item) => item.units.filter(isDone).map((unit) => ({ item, unit })));
+  const groupable = snapshot.diners.filter((d) => billable.some((i) => i.dinerId === d.id && i.units.some(isFree)));
 
   const claim = (item: OrderItemDTO, unit: UnitDTO, denominator: Denominator) =>
     run(() => session.act('/api/diner/claims', { orderItemId: item.id, unitIndex: unit.unitIndex, denominator }));
@@ -222,10 +259,12 @@ function ItemsMode({
     run(() => session.act('/api/diner/claims/release', { orderItemId: item.id, unitIndex: unit.unitIndex, portionIndex: portion.index }));
 
   return (
-    <div className="stack">
+    <div className="stack stack-6">
       {blocked ? (
-        <div className="banner banner-warn">
-          <span className="banner-icon">✋</span>
+        <div className="notice notice--warn">
+          <span className="notice__icon">
+            <Lock size={20} />
+          </span>
           <p className="small">
             {current!.status === 'AWAITING_POSNET'
               ? 'Estás esperando al mozo con el Posnet.'
@@ -233,73 +272,70 @@ function ItemsMode({
           </p>
         </div>
       ) : (
-        <p className="small muted">
-          Tocá lo que vas a pagar: el ítem entero, la mitad o un tercio. Lo que elegís se reserva para vos y deja de estar
-          disponible para el resto por {session.venue?.reservationTtlSec ?? 60} segundos.
+        <p className="hint">
+          Tocá lo que pagás: entero, mitad o tercio. Lo que elegís queda reservado {session.venue?.reservationTtlSec ?? 60} s
+          para vos.
         </p>
       )}
 
       {groupable.length > 0 && !blocked && (
-        <div className="stack-sm">
-          <span className="small muted" style={{ fontWeight: 650 }}>
-            Atajos
-          </span>
-          <div className="chips">
-            {groupable.map((d) => (
-              <button key={d.id} className="chip" disabled={busy} onClick={() => claimOf(d.id)}>
-                <Avatar name={d.name} color={d.color} size="sm" />
-                {d.id === me ? 'Todo lo que pedí yo' : `Lo de ${d.name}`}
+        <div className="chips" aria-label="Atajos">
+          {groupable.map((d) => {
+            const p = people.get(d.id);
+            return (
+              <button key={d.id} className="chip" disabled={busy} onClick={() => run(() => session.act(`/api/diner/claims/of/${d.id}`))}>
+                {p && <Avatar name={p.name} tone={p.tone} />}
+                {d.id === me ? 'Todo lo mío' : `Lo de ${d.name}`}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
 
-      {pendingItems.length === 0 ? (
-        <div className="card">
-          <Empty emoji="✅" title="Todo lo pedido ya está pago" />
-        </div>
+      {pending.length === 0 ? (
+        <Empty icon={<CheckCircle size={24} />} title="Todo lo pedido está pago" />
       ) : (
-        <div className="card list">
-          {pendingItems.flatMap((item) =>
-            item.units
-              .filter((u) => !unitIsDone(u))
-              .map((unit) => (
-                <UnitRow
-                  key={`${item.id}-${unit.unitIndex}`}
-                  item={item}
-                  unit={unit}
-                  me={me}
-                  current={current}
-                  diners={diners}
-                  payments={payments}
-                  disabled={busy || !!blocked}
-                  onClaim={(d) => claim(item, unit, d)}
-                  onRelease={(p) => release(item, unit, p)}
-                />
-              )),
-          )}
-        </div>
+        <ul className="units">
+          {pending.map(({ item, unit }) => (
+            <UnitRow
+              key={`${item.id}-${unit.unitIndex}`}
+              item={item}
+              unit={unit}
+              me={me}
+              current={current}
+              people={people}
+              payments={payments}
+              disabled={busy || blocked}
+              onClaim={(d) => claim(item, unit, d)}
+              onRelease={(p) => release(item, unit, p)}
+            />
+          ))}
+        </ul>
       )}
 
-      {paidUnits.length > 0 && (
-        <div className="stack-sm">
-          <button className="link-btn small" style={{ justifySelf: 'start' }} onClick={() => setShowPaid(!showPaid)}>
-            {showPaid ? 'Ocultar' : 'Ver'} lo ya pagado ({paidUnits.length})
+      {done.length > 0 && (
+        <div className="stack stack-2">
+          <button className="text-btn" style={{ justifySelf: 'start' }} onClick={() => setShowPaid(!showPaid)}>
+            {showPaid ? 'Ocultar' : 'Ver'} lo ya pagado ({done.length})
           </button>
-          {showPaid && (
-            <div className="card list">
-              {paidUnits.map(({ item, unit }) => (
-                <div key={`${item.id}-${unit.unitIndex}`} className="list-item row-between small">
-                  <span>
-                    {item.name}
-                    {item.quantity > 1 ? ` (${unit.unitIndex + 1} de ${item.quantity})` : ''}
-                  </span>
-                  <span className="badge badge-ok">Pagado {money(unit.price)}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <AnimatePresence>
+            {showPaid && (
+              <motion.ul className="paid-list" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                {done.map(({ item, unit }) => (
+                  <li key={`${item.id}-${unit.unitIndex}`} className="between">
+                    <span className="small">
+                      {item.name}
+                      {item.quantity > 1 ? ` · ${unit.unitIndex + 1}/${item.quantity}` : ''}
+                    </span>
+                    <span className="tag tag--ok">
+                      <Check size={12} weight="bold" />
+                      {money(unit.price)}
+                    </span>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -311,7 +347,7 @@ function UnitRow({
   unit,
   me,
   current,
-  diners,
+  people,
   payments,
   disabled,
   onClaim,
@@ -321,91 +357,108 @@ function UnitRow({
   unit: UnitDTO;
   me: string;
   current: PaymentDTO | undefined;
-  diners: Map<string, DinerDTO>;
+  people: Map<string, Person>;
   payments: Map<string, PaymentDTO>;
   disabled: boolean;
   onClaim: (d: Denominator) => void;
   onRelease: (p: PortionDTO) => void;
 }) {
-  const who = diners.get(item.dinerId);
-  const title = `${item.name}${item.quantity > 1 ? ` (${unit.unitIndex + 1} de ${item.quantity})` : ''}`;
+  const who = people.get(item.dinerId);
+  const title = `${item.name}${item.quantity > 1 ? ` · ${unit.unitIndex + 1}/${item.quantity}` : ''}`;
+  const mineCount = unit.portions.filter((p) => current && p.paymentId === current.id).length;
   return (
-    <div className="unit-row">
-      <div className="row-between">
-        <div className="grow">
-          <strong>{title}</strong>
-          <div className="tiny faint">{who ? (who.id === me ? 'Lo pediste vos' : `Pidió ${who.name}`) : ''}</div>
+    <motion.li layout className={clsx('unit', mineCount > 0 && 'is-mine')}>
+      <div className="unit__head">
+        <div className="grow stack" style={{ gap: 2 }}>
+          <h3 className="unit__name">{title}</h3>
+          <span className="unit__meta">
+            {who && <Avatar name={who.name} tone={who.tone} size="sm" />}
+            {who ? (who.id === me ? 'Lo pediste vos' : `Pidió ${who.name}`) : ''}
+          </span>
         </div>
-        <strong className="num">{money(unit.price)}</strong>
+        <span className="mono unit__price">{money(unit.price)}</span>
       </div>
+
       {unit.denominator === null ? (
-        <div className="fraction-options">
+        <div className="fractions">
           {([1, 2, 3] as const).map((d) => (
-            <button key={d} className="fraction-btn" disabled={disabled} onClick={() => onClaim(d)} aria-label={`Pagar ${FRACTION_LABEL[d]} de ${title}`}>
-              <span>{FRACTION_LABEL[d]}</span>
-              <small className="num">{money(Math.ceil(unit.price / d))}</small>
+            <button key={d} className="fraction" disabled={disabled} onClick={() => onClaim(d)} aria-label={`Pagar ${FRACTION[d]} de ${title}`}>
+              <span className="fraction__label">{FRACTION[d]}</span>
+              <span className="fraction__price mono">{money(Math.ceil(unit.price / d))}</span>
             </button>
           ))}
         </div>
       ) : (
-        <div className="portions" style={{ ['--cols' as string]: unit.denominator }}>
+        <div className="slices">
           {unit.portions.map((p) => {
-            const owner = p.dinerId ? diners.get(p.dinerId) : undefined;
-            const fraction = FRACTION_LABEL[unit.denominator!];
+            const owner = p.dinerId ? people.get(p.dinerId) : undefined;
+            const frac = FRACTION[unit.denominator!];
             if (p.state === 'AVAILABLE')
               return (
-                <button key={p.index} className="portion p-AVAILABLE" disabled={disabled} onClick={() => onClaim(unit.denominator!)}>
-                  <span className="num">
-                    {fraction} · {money(p.amount)}
+                <button key={p.index} className="slice slice--free" disabled={disabled} onClick={() => onClaim(unit.denominator!)} aria-label={`Tomar ${frac} de ${title}`}>
+                  <span className="slice__frac">
+                    {frac} · {money(p.amount)}
                   </span>
-                  <small className="faint">Tomar</small>
+                  <span className="slice__who">
+                    <Plus size={12} weight="bold" /> Tomar
+                  </span>
                 </button>
               );
             if (p.state === 'RESERVED' && current && p.paymentId === current.id)
               return (
-                <button key={p.index} className="portion p-MINE" disabled={disabled || current.status !== 'RESERVED'} onClick={() => onRelease(p)}>
-                  <span className="num">
-                    {fraction} · {money(p.amount)} ✓
+                <button key={p.index} className="slice slice--mine" disabled={disabled || current.status !== 'RESERVED'} onClick={() => onRelease(p)} aria-label={`Soltar ${frac} de ${title}`}>
+                  <span className="slice__frac">
+                    {frac} · {money(p.amount)}
                   </span>
-                  <small>Tuyo · tocá para soltar</small>
+                  <span className="slice__who">
+                    <Check size={12} weight="bold" /> Tuyo
+                  </span>
                 </button>
               );
             const label =
               p.state === 'PAID'
                 ? owner
-                  ? `Pagó ${owner.id === me ? 'vos' : owner.name}`
+                  ? owner.id === me
+                    ? 'Pagaste'
+                    : `Pagó ${owner.name}`
                   : 'Pagado'
                 : p.state === 'IN_SPLIT'
                   ? 'En la división'
                   : p.paymentId && payments.get(p.paymentId)?.status === 'AWAITING_POSNET'
                     ? `${owner?.name ?? 'Alguien'} · Posnet`
-                    : `🔒 Reservado por ${owner?.id === me ? 'vos' : (owner?.name ?? 'alguien')}`;
+                    : owner?.id === me
+                      ? 'Reservado por vos'
+                      : `${owner?.name ?? 'Alguien'}`;
+            const cls = p.state === 'PAID' ? 'slice--paid' : p.state === 'IN_SPLIT' ? 'slice--split' : 'slice--taken';
             return (
-              <div key={p.index} className={`portion p-${p.state}`}>
-                <span className="num">
-                  {fraction} · {money(p.amount)}
+              <div key={p.index} className={clsx('slice', cls)}>
+                <span className="slice__frac">
+                  {frac} · {money(p.amount)}
                 </span>
-                <small>{label}</small>
+                <span className="slice__who">
+                  {p.state === 'PAID' ? <Check size={12} weight="bold" /> : p.state === 'RESERVED' ? <Lock size={12} weight="bold" /> : null}
+                  {label}
+                </span>
               </div>
             );
           })}
         </div>
       )}
-    </div>
+    </motion.li>
   );
 }
 
-// ---------- Modo "Dividir el total" ----------
+// ---------- Dividir el total ----------
 
 function SplitMode({
   session,
   me,
-  diners,
+  people,
   current,
 }: {
   session: DinerSession;
   me: string;
-  diners: Map<string, DinerDTO>;
+  people: Map<string, Person>;
   current: PaymentDTO | undefined;
 }) {
   const snapshot = session.snapshot!;
@@ -413,64 +466,76 @@ function SplitMode({
   const { run, busy } = useAction();
   const [parts, setParts] = useState(() => Math.max(1, Math.min(snapshot.diners.length, 30)));
   const [take, setTake] = useState(1);
-  const hasItemsSelection = current?.kind === 'ITEMS';
+  const hasItems = current?.kind === 'ITEMS';
 
   if (split) {
     const myShares = current?.kind === 'SPLIT' ? current.shareIndices.length : 0;
     const free = split.shares.filter((s) => s.state === 'AVAILABLE').length;
     const paid = split.shares.filter((s) => s.state === 'PAID').length;
     const othersReserved = split.shares.some((s) => s.state === 'RESERVED' && s.dinerId !== me);
-    const creator = diners.get(split.createdBy);
+    const creator = people.get(split.createdBy);
     const outside = snapshot.bill.unclaimed - split.shares.filter((s) => s.state === 'AVAILABLE').reduce((s, x) => s + x.amount, 0);
     return (
-      <div className="stack">
-        <div className="card card-pad stack">
-          <div className="stack-sm" style={{ gap: 2 }}>
-            <span className="small muted">
-              {creator ? `${creator.id === me ? 'Dividiste' : `${creator.name} dividió`}` : 'Se dividió'} el saldo en {split.parts}
-            </span>
-            <h2 className="num">
-              {money(split.total)} → {money(split.shares[0]!.amount)} cada parte
-            </h2>
-            <span className="small muted">
-              {paid} de {split.parts} {split.parts === 1 ? 'parte abonada' : 'partes abonadas'}
-            </span>
-          </div>
-          <div className="share-grid">
-            {split.shares.map((s) => {
-              const owner = s.dinerId ? diners.get(s.dinerId) : undefined;
+      <div className="stack stack-6">
+        <div className="card card--pad split-live">
+          <Donut
+            size={176}
+            segments={split.shares.map((s) => {
               const isMine = s.state === 'RESERVED' && current?.id === s.paymentId;
-              const label =
-                s.state === 'AVAILABLE'
-                  ? 'Libre'
-                  : isMine
-                    ? 'Tuya'
-                    : s.state === 'PAID'
-                      ? owner
-                        ? `Pagó ${owner.id === me ? 'vos' : owner.name}`
-                        : 'Cobrada'
-                      : `${owner?.name ?? 'Alguien'} pagando`;
+              return {
+                key: String(s.index),
+                color: s.state === 'PAID' ? 'var(--ok)' : isMine ? 'var(--accent)' : 'var(--paper-3)',
+                pattern: s.state === 'RESERVED' && !isMine ? ('hatch' as const) : undefined,
+              };
+            })}
+          >
+            <div className="stack" style={{ gap: 2, justifyItems: 'center' }}>
+              <strong className="display" style={{ fontSize: 44, lineHeight: 0.9 }}>
+                {paid}/{split.parts}
+              </strong>
+              <span className="eyebrow">pagadas</span>
+            </div>
+          </Donut>
+          <div className="stack stack-1" style={{ textAlign: 'center' }}>
+            <span className="small muted">
+              {creator ? (creator.id === me ? 'Dividiste' : `${creator.name} dividió`) : 'Se dividió'} {money(split.total)} en {split.parts}
+            </span>
+            <strong className="display" style={{ fontSize: 30 }}>
+              {money(split.shares[0]!.amount)} <span className="small muted" style={{ fontFamily: 'var(--font-ui)' }}>c/u</span>
+            </strong>
+          </div>
+          <ul className="shares">
+            {split.shares.map((s) => {
+              const owner = s.dinerId ? people.get(s.dinerId) : undefined;
+              const isMine = s.state === 'RESERVED' && current?.id === s.paymentId;
               return (
-                <div key={s.index} className={`share s-${isMine ? 'MINE' : s.state}`}>
-                  <span>Parte {s.index + 1}</span>
-                  <strong className="num">{money(s.amount)}</strong>
-                  <span className="tiny">{label}</span>
-                </div>
+                <li key={s.index} className={clsx('share', isMine ? 'is-mine' : `is-${s.state.toLowerCase()}`)}>
+                  <span className="mono tiny">{String(s.index + 1).padStart(2, '0')}</span>
+                  <span className="grow">
+                    {s.state === 'AVAILABLE' ? 'Libre' : isMine ? 'Tuya' : s.state === 'PAID' ? `Pagó ${owner ? (owner.id === me ? 'vos' : owner.name) : 'el mozo'}` : `${owner?.name ?? 'Alguien'} pagando`}
+                  </span>
+                  <span className="mono">{money(s.amount)}</span>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
 
-        {hasItemsSelection ? (
-          <div className="banner banner-warn">
-            <span className="banner-icon">✋</span>
-            <p className="small">Tenés una selección de ítems en curso. Pagala o soltala para tomar partes de la división.</p>
+        {hasItems ? (
+          <div className="notice notice--warn">
+            <span className="notice__icon">
+              <Lock size={20} />
+            </span>
+            <p className="small">Tenés ítems reservados. Pagalos o soltalos para tomar partes.</p>
           </div>
         ) : current?.status === 'AWAITING_POSNET' ? null : (
-          <div className="card card-pad stack" style={{ justifyItems: 'center', textAlign: 'center' }}>
-            <h3>¿Cuántas partes pagás?</h3>
+          <div className="between card card--pad">
+            <div className="stack stack-1">
+              <strong>¿Cuántas partes pagás?</strong>
+              <span className="small muted">{free + myShares > 1 ? 'Si invitás a alguien, sumá su parte.' : free + myShares === 0 ? 'No quedan partes libres.' : 'Queda una parte libre.'}</span>
+            </div>
             <Stepper
-              large
+              tone="ink"
               label="Partes que pagás"
               value={myShares}
               min={0}
@@ -478,22 +543,13 @@ function SplitMode({
               disabled={busy}
               onChange={(count) => run(() => session.act('/api/diner/split/take', { count }))}
             />
-            <p className="small muted">
-              {free === 0 && myShares === 0
-                ? 'No quedan partes libres.'
-                : 'Si invitás a alguien, sumá su parte. Las partes que tomás se reservan para vos.'}
-            </p>
           </div>
         )}
 
-        {outside > 0 && (
-          <p className="small muted">
-            Hay {money(outside)} pedidos después de dividir: no están en la división, se pagan desde “Elegir ítems”.
-          </p>
-        )}
+        {outside > 0 && <p className="hint">{money(outside)} se pidieron después de dividir: se pagan desde “Por ítems”.</p>}
 
         {paid === 0 && !othersReserved && (
-          <button className="btn btn-ghost btn-sm" style={{ justifySelf: 'center' }} disabled={busy} onClick={() => run(() => session.act('/api/diner/split/cancel'), 'División cancelada')}>
+          <button className="text-btn" style={{ justifySelf: 'center' }} disabled={busy} onClick={() => run(() => session.act('/api/diner/split/cancel'), 'División cancelada')}>
             Cancelar la división
           </button>
         )}
@@ -504,87 +560,131 @@ function SplitMode({
   const available = snapshot.bill.unclaimed;
   if (available === 0)
     return (
-      <div className="card">
-        <Empty emoji="⏳" title="No queda saldo libre para dividir">
-          Lo que falta está siendo pagado por otras personas de la mesa.
-        </Empty>
-      </div>
+      <Empty icon={<Hourglass size={24} />} title="No queda saldo libre">
+        Lo que falta lo están pagando otras personas de la mesa.
+      </Empty>
     );
 
   const each = Math.ceil(available / parts);
   const start = (p: number, t: number) => run(() => session.act('/api/diner/split', { parts: p, take: t }));
   return (
-    <div className="stack">
-      <div className="card card-pad stack" style={{ justifyItems: 'center', textAlign: 'center' }}>
-        <div className="stack-sm" style={{ gap: 2 }}>
-          <span className="small muted">Saldo pendiente a dividir</span>
-          <span className="hero-amount">{money(available)}</span>
-        </div>
-        <h3>¿Entre cuántas personas?</h3>
-        <Stepper
-          large
-          label="Cantidad de personas"
-          value={parts}
-          min={1}
-          max={30}
-          onChange={(n) => {
-            setParts(n);
-            setTake((t) => Math.min(t, n));
-          }}
-        />
-        <p className="num" style={{ fontWeight: 750 }}>
-          ≈ {money(each)} cada una
-        </p>
-        {parts > 1 && (
-          <div className="row" style={{ justifyContent: 'center' }}>
-            <span className="small muted">Pago</span>
+    <div className="card split-calc">
+      <div className="split-calc__top">
+        <span className="eyebrow">A dividir</span>
+        <strong className="display split-calc__amount">
+          <Money cents={available} />
+        </strong>
+      </div>
+      <BigStepper
+        label="Cantidad de personas"
+        unit={parts === 1 ? 'persona' : 'personas'}
+        value={parts}
+        min={1}
+        max={30}
+        onChange={(n) => {
+          setParts(n);
+          setTake((t) => Math.min(t, n));
+        }}
+      />
+      <div className="split-calc__result">
+        <span className="eyebrow">Cada parte</span>
+        <strong className="mono">
+          <Money cents={each} />
+        </strong>
+      </div>
+      {parts > 1 && (
+        <div className="between">
+          <span className="small muted">Yo pago</span>
+          <div className="row">
             <Stepper label="Partes que pagás" value={take} min={1} max={parts} onChange={setTake} />
             <span className="small muted">{take === 1 ? 'parte' : 'partes'}</span>
           </div>
-        )}
-        <button className="btn btn-primary btn-lg btn-block" disabled={busy || hasItemsSelection} onClick={() => start(parts, take)}>
-          {parts === 1 ? `Pagar todo · ${money(available)}` : `Dividir y pagar ${take === 1 ? 'mi parte' : `${take} partes`}`}
+        </div>
+      )}
+      <button className="btn btn--accent btn--lg btn--block btn--split" disabled={busy || hasItems} onClick={() => start(parts, take)}>
+        <span>{parts === 1 ? 'Pagar todo' : take === 1 ? 'Dividir y pagar mi parte' : `Dividir y pagar ${take} partes`}</span>
+        <ArrowRight size={18} weight="bold" />
+      </button>
+      {parts > 1 && (
+        <button className="text-btn" style={{ justifySelf: 'center' }} disabled={busy || hasItems} onClick={() => start(1, 1)}>
+          Prefiero pagar todo ({money(available)})
         </button>
-        {parts > 1 && (
-          <button className="btn btn-ghost btn-sm" disabled={busy || hasItemsSelection} onClick={() => start(1, 1)}>
-            Prefiero pagar todo lo que queda ({money(available)})
-          </button>
-        )}
-        <p className="tiny faint">
-          Se reparte el saldo pendiente actual: lo que alguien ya pagó por ítems no se vuelve a cobrar. El resto de la mesa
-          toma sus partes desde su celular.
-        </p>
-        {hasItemsSelection && <p className="small" style={{ color: 'var(--warn)' }}>Tenés una selección de ítems en curso: pagala o soltala primero.</p>}
-      </div>
+      )}
+      <p className="hint" style={{ textAlign: 'center' }}>
+        {hasItems ? 'Primero pagá o soltá los ítems que reservaste.' : 'Se reparte lo que falta pagar. Lo que alguien ya pagó no se cobra de nuevo.'}
+      </p>
     </div>
   );
 }
 
-// ---------- Confirmación ----------
+// ---------- Pago registrado ----------
 
 function PaidScreen({ payment, name, outstanding, onDone }: { payment: PaymentDTO; name: string; outstanding: number; onDone: () => void }) {
   return (
-    <main className="diner-main">
-      <div className="card card-pad stack" style={{ textAlign: 'center', padding: '32px 20px' }}>
-        <div className="success-mark" aria-hidden="true">
-          ✓
-        </div>
-        <h1>¡Listo, {name}!</h1>
-        <p className="muted">
-          Registramos tu pago de <strong className="num">{money(payment.amount + payment.tipAmount)}</strong>
-          {payment.method ? ` con ${METHOD_LABEL[payment.method]}` : ''}
-          {payment.tipAmount > 0 ? ` (incluye ${money(payment.tipAmount)} de propina)` : ''}.
-        </p>
-        <div className={`banner ${outstanding === 0 ? 'banner-ok' : 'banner-split'}`} style={{ textAlign: 'left' }}>
-          <span className="banner-icon">{outstanding === 0 ? '🎉' : '🧾'}</span>
-          <p className="small">
-            {outstanding === 0 ? '¡La mesa quedó saldada! Gracias por venir.' : `En la mesa todavía quedan ${money(outstanding)} por pagar.`}
+    <main className="d-main">
+      <section className="done">
+        <motion.svg width="84" height="84" viewBox="0 0 84 84" className="done__mark" initial="hidden" animate="shown" aria-hidden="true">
+          <motion.circle
+            cx="42"
+            cy="42"
+            r="38"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            variants={{ hidden: { pathLength: 0 }, shown: { pathLength: 1, transition: { duration: 0.6, ease: 'easeOut' } } }}
+          />
+          <motion.path
+            d="M27 43 l10 10 l21 -22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            variants={{ hidden: { pathLength: 0 }, shown: { pathLength: 1, transition: { duration: 0.35, delay: 0.45, ease: 'easeOut' } } }}
+          />
+        </motion.svg>
+        <motion.div className="stack stack-2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <h1 className="display done__title">
+            Listo, <em>{name}</em>.
+          </h1>
+          <p className="muted">Tu pago quedó registrado para toda la mesa.</p>
+        </motion.div>
+
+        <motion.div className="receipt-wrap" style={{ width: '100%' }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <div className="receipt stub">
+            <dl className="totals">
+              <div>
+                <dt>Tu parte</dt>
+                <dd className="mono">{money(payment.amount)}</dd>
+              </div>
+              {payment.tipAmount > 0 && (
+                <div>
+                  <dt>Propina ({payment.tipPercent}%)</dt>
+                  <dd className="mono">{money(payment.tipAmount)}</dd>
+                </div>
+              )}
+              <div className="faint">
+                <dt>{payment.method ? METHOD_LABEL[payment.method] : 'Pago'}</dt>
+                <dd className="mono">{clock(payment.paidAt ?? payment.createdAt)}</dd>
+              </div>
+              <div className="totals__strong">
+                <dt>Pagaste</dt>
+                <dd className="mono">{money(payment.amount + payment.tipAmount)}</dd>
+              </div>
+            </dl>
+          </div>
+        </motion.div>
+
+        <div className={clsx('notice', outstanding === 0 ? 'notice--ok' : 'notice--split')} style={{ width: '100%' }}>
+          <span className="notice__icon">{outstanding === 0 ? <CheckCircle size={20} weight="fill" /> : <Receipt size={20} />}</span>
+          <p className="small" style={{ alignSelf: 'center' }}>
+            {outstanding === 0 ? 'La mesa quedó saldada. ¡Gracias por venir!' : `En la mesa faltan ${money(outstanding)}.`}
           </p>
         </div>
-        <button className="btn btn-primary btn-block" onClick={onDone}>
+        <button className="btn btn--ink btn--lg btn--block" onClick={onDone}>
           Volver
         </button>
-      </div>
+      </section>
     </main>
   );
 }

@@ -1,16 +1,19 @@
+import { ArrowLeft, ArrowUpRight, Check, CreditCard, QrCode as QrIcon, Wallet, type Icon } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import type { PaymentDTO, PaymentMethod } from '../../../shared/types.ts';
-import { CopyButton, QrCode, useAction } from '../components/ui.tsx';
+import { CopyButton, Money, QrCode, Segmented, useAction } from '../components/ui.tsx';
 import { countdown, money } from '../lib/format.ts';
 import { useNow } from '../lib/hooks.ts';
 import type { DinerSession } from './useDinerSession.ts';
 
 type DinerMethod = Exclude<PaymentMethod, 'CASH'>;
 
-const METHODS: { id: DinerMethod; icon: string; title: string; hint: string }[] = [
-  { id: 'MERCADO_PAGO', icon: '📱', title: 'Mercado Pago', hint: 'Abrís la app y transferís al local' },
-  { id: 'QR', icon: '🔳', title: 'QR de cobro', hint: 'Escaneás el QR del local con tu billetera' },
-  { id: 'POSNET', icon: '💳', title: 'Pedir el Posnet', hint: 'El mozo te acerca la terminal (débito o crédito)' },
+const METHODS: { id: DinerMethod; icon: Icon; title: string; hint: string }[] = [
+  { id: 'MERCADO_PAGO', icon: Wallet, title: 'Mercado Pago', hint: 'Transferís desde la app' },
+  { id: 'QR', icon: QrIcon, title: 'QR del local', hint: 'Lo escaneás con tu billetera' },
+  { id: 'POSNET', icon: CreditCard, title: 'Posnet', hint: 'El mozo te acerca la terminal' },
 ];
 
 export function Checkout({
@@ -27,7 +30,8 @@ export function Checkout({
   const snapshot = session.snapshot!;
   const venue = session.venue;
   const { run, busy } = useAction();
-  const now = useNow(250, payment.status === 'RESERVED');
+  const reserved = payment.status === 'RESERVED';
+  const now = useNow(250, reserved);
   const [tip, setTip] = useState(payment.tipPercent);
   const method = payment.method as DinerMethod | null;
 
@@ -48,183 +52,199 @@ export function Checkout({
     });
   const cancel = () => run(() => session.act(`/api/diner/payments/${payment.id}/cancel`), 'Liberaste tu reserva');
 
-  const awaitingPosnet = payment.status === 'AWAITING_POSNET';
+  if (payment.status === 'AWAITING_POSNET') {
+    return (
+      <main className="d-main">
+        <section className="posnet">
+          <div className="posnet__pulse" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <CreditCard size={34} weight="duotone" />
+          </div>
+          <span className="eyebrow">Posnet pedido</span>
+          <h1 className="display posnet__title">
+            El mozo <em>ya viene</em>.
+          </h1>
+          <p className="muted balance">
+            Te acerca la terminal para cobrarte <strong className="mono">{money(toPay)}</strong>. Tu parte queda reservada
+            hasta que confirme el cobro.
+          </p>
+          <div className="row wrap" style={{ justifyContent: 'center' }}>
+            <button className="btn btn--outline" disabled={busy} onClick={() => choose('MERCADO_PAGO')}>
+              Pagar de otra forma
+            </button>
+            <button className="btn btn--ghost" disabled={busy} onClick={cancel}>
+              Cancelar
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
-    <main className="diner-main">
-      <div className="card card-pad stack">
-        <div className="row-between" style={{ alignItems: 'flex-start' }}>
-          <div className="stack-sm" style={{ gap: 2 }}>
-            <span className="small muted">Vas a pagar</span>
-            <span className="hero-amount">{money(toPay)}</span>
-            {tipAmount > 0 && (
-              <span className="small muted num">
-                {money(payment.amount)} + {money(tipAmount)} de propina
-              </span>
-            )}
-          </div>
-          {remaining !== null && (
-            <span className={`timer${remaining < 15000 ? ' urgent' : ''}`}>⏱ {countdown(remaining)}</span>
-          )}
+    <main className="d-main co">
+      <button className="text-btn co__back" onClick={onBack}>
+        <ArrowLeft size={16} />
+        Cambiar lo que pago
+      </button>
+
+      <section className="co-hero">
+        <span className="eyebrow">Vas a pagar</span>
+        <div className="display co-hero__amount">
+          <Money cents={toPay} />
         </div>
+        <span className="mono small muted">
+          {tipAmount > 0 ? `${money(payment.amount)} + ${money(tipAmount)} de propina` : 'Sin propina'}
+        </span>
         {remaining !== null && (
-          <div className={`timer-bar${remaining < 15000 ? ' urgent' : ''}`} aria-hidden="true">
-            <span style={{ width: `${Math.max(0, Math.min(100, (remaining / ttl) * 100))}%` }} />
+          <div className={clsx('co-timer', remaining < 15000 && 'is-urgent')}>
+            <div className="co-timer__track">
+              <span style={{ transform: `scaleX(${Math.max(0, remaining / ttl)})` }} />
+            </div>
+            <span className="mono tiny">Reservado · {countdown(remaining)}</span>
           </div>
         )}
-        <details>
-          <summary className="small muted" style={{ cursor: 'pointer' }}>
+        <details className="co-detail">
+          <summary>
             {payment.kind === 'SPLIT'
               ? `${payment.shareIndices.length} de ${split?.parts ?? '?'} partes de la división`
               : `${payment.claims.length} ${payment.claims.length === 1 ? 'porción' : 'porciones'} de la cuenta`}
           </summary>
-          <ul className="small" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+          <ul>
             {payment.kind === 'SPLIT'
               ? payment.shareIndices.map((i) => (
-                  <li key={i} className="num">
-                    Parte {i + 1} · {money(split?.shares[i]?.amount ?? 0)}
+                  <li key={i}>
+                    <span>Parte {i + 1}</span>
+                    <span className="mono">{money(split?.shares[i]?.amount ?? 0)}</span>
                   </li>
                 ))
               : payment.claims.map((c) => (
-                  <li key={`${c.orderItemId}-${c.unitIndex}-${c.portionIndex}`} className="num">
-                    {c.label} · {money(c.amount)}
+                  <li key={`${c.orderItemId}-${c.unitIndex}-${c.portionIndex}`}>
+                    <span>{c.label}</span>
+                    <span className="mono">{money(c.amount)}</span>
                   </li>
                 ))}
           </ul>
         </details>
-        {!awaitingPosnet && (
-          <p className="tiny faint">
-            Tu parte queda reservada mientras pagás. Si en {venue?.reservationTtlSec ?? 60} segundos no confirmás, se libera
-            para el resto de la mesa.
-          </p>
-        )}
-      </div>
+      </section>
 
-      {awaitingPosnet ? (
-        <div className="card card-pad stack" style={{ textAlign: 'center' }}>
-          <div className="hero-emoji" aria-hidden="true">
-            🔔
-          </div>
-          <h2>Le avisamos al mozo</h2>
-          <p className="muted">
-            En un momento se acerca con el Posnet para cobrarte <strong className="num">{money(toPay)}</strong>. Tu parte
-            queda reservada mientras tanto; cuando el mozo confirme el cobro, figura como abonada.
-          </p>
-          <div className="spinner" style={{ margin: '0 auto' }} aria-label="Esperando al mozo" />
-          <div className="row" style={{ justifyContent: 'center' }}>
-            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => choose('MERCADO_PAGO')}>
-              Mejor pago de otra forma
-            </button>
-            <button className="btn btn-ghost btn-sm" disabled={busy} onClick={cancel}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {(venue?.tipOptions.length ?? 0) > 0 && (
-            <div className="stack-sm">
-              <h3>¿Dejás propina?</h3>
-              <div className="chips">
-                {[0, ...(venue?.tipOptions ?? [])].map((t) => (
-                  <button
-                    key={t}
-                    className="chip"
-                    aria-pressed={tip === t}
-                    onClick={() => {
-                      setTip(t);
-                      if (method) void choose(method, t);
-                    }}
-                  >
-                    {t === 0 ? 'Sin propina' : `${t}% · ${money(Math.round((payment.amount * t) / 100))}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="stack-sm">
-            <h3>¿Cómo pagás?</h3>
-            {METHODS.map((m) => (
-              <button key={m.id} className="method" aria-pressed={method === m.id} disabled={busy} onClick={() => choose(m.id)}>
-                <span className="method-icon" aria-hidden="true">
-                  {m.icon}
-                </span>
-                <span className="grow">
-                  <strong>{m.title}</strong>
-                  <br />
-                  <span className="small muted">{m.hint}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {method === 'MERCADO_PAGO' && (
-            <div className="card card-pad stack">
-              <h3>Pagá con Mercado Pago</h3>
-              {venue?.mpLink && (
-                <a className="btn btn-secondary btn-block" href={venue.mpLink} target="_blank" rel="noopener noreferrer">
-                  1. Abrir Mercado Pago ↗
-                </a>
-              )}
-              {venue?.mpAlias && (
-                <div className="copy-row">
-                  <span className="grow">
-                    <span className="tiny muted">2. Transferí al alias</span>
-                    <br />
-                    <strong className="ellipsis">{venue.mpAlias}</strong>
-                  </span>
-                  <CopyButton text={venue.mpAlias} />
-                </div>
-              )}
-              <div className="copy-row">
-                <span className="grow">
-                  <span className="tiny muted">Monto exacto</span>
-                  <br />
-                  <strong className="num">{money(toPay)}</strong>
-                </span>
-                <CopyButton text={(toPay / 100).toFixed(2).replace('.', ',')} />
-              </div>
-              <ConfirmButton busy={busy} onConfirm={confirm} />
-            </div>
-          )}
-
-          {method === 'QR' && (
-            <div className="card card-pad stack">
-              <h3>Escaneá el QR del local</h3>
-              {venue?.cobroQrData ? (
-                <QrCode value={venue.cobroQrData} label="QR de cobro del local" />
-              ) : (
-                <p className="muted small">El local todavía no cargó su QR de cobro. Pedile al mozo que te lo muestre.</p>
-              )}
-              <p className="small muted center">
-                Pagá <strong className="num">{money(toPay)}</strong> desde Mercado Pago u otra billetera.
-              </p>
-              <ConfirmButton busy={busy} onConfirm={confirm} />
-            </div>
-          )}
-
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <button className="btn btn-ghost btn-sm" onClick={onBack}>
-              ← Cambiar lo que pago
-            </button>
-            <button className="btn btn-ghost btn-sm" disabled={busy} onClick={cancel}>
-              Cancelar y liberar
-            </button>
-          </div>
-        </>
+      {(venue?.tipOptions.length ?? 0) > 0 && (
+        <section className="stack stack-2">
+          <span className="eyebrow">Propina</span>
+          <Segmented<string>
+            label="Propina"
+            value={String(tip)}
+            onChange={(v) => {
+              const t = Number(v);
+              setTip(t);
+              if (method) void choose(method, t);
+            }}
+            options={[0, ...(venue?.tipOptions ?? [])].map((t) => ({ value: String(t), label: t === 0 ? 'Sin propina' : `${t}%` }))}
+          />
+        </section>
       )}
+
+      <section className="stack stack-2">
+        <span className="eyebrow">Cómo pagás</span>
+        <div className="methods">
+          {METHODS.map(({ id, icon: IconCmp, title, hint }) => (
+            <button key={id} className="method" aria-pressed={method === id} disabled={busy} onClick={() => choose(id)}>
+              <span className="method__icon">
+                <IconCmp size={22} weight={method === id ? 'fill' : 'regular'} />
+              </span>
+              <span className="grow stack" style={{ gap: 1 }}>
+                <strong>{title}</strong>
+                <span className="small muted">{hint}</span>
+              </span>
+              <span className="method__radio" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <AnimatePresence mode="wait">
+        {method === 'MERCADO_PAGO' && (
+          <motion.section key="mp" className="card card--pad stack stack-4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <ol className="steps">
+              <li>
+                <span className="steps__n mono">01</span>
+                <div className="grow stack stack-2">
+                  <strong>Abrí Mercado Pago</strong>
+                  {venue?.mpLink && (
+                    <a className="btn btn--outline btn--sm" style={{ justifySelf: 'start' }} href={venue.mpLink} target="_blank" rel="noopener noreferrer">
+                      Abrir la app
+                      <ArrowUpRight size={16} />
+                    </a>
+                  )}
+                </div>
+              </li>
+              <li>
+                <span className="steps__n mono">02</span>
+                <div className="grow stack stack-2">
+                  <strong>Transferí {money(toPay)}</strong>
+                  {venue?.mpAlias && (
+                    <div className="copy-field">
+                      <span className="grow">
+                        <span className="eyebrow">Alias</span>
+                        <span className="mono ellipsis">{venue.mpAlias}</span>
+                      </span>
+                      <CopyButton text={venue.mpAlias} />
+                    </div>
+                  )}
+                  <div className="copy-field">
+                    <span className="grow">
+                      <span className="eyebrow">Monto</span>
+                      <span className="mono">{money(toPay)}</span>
+                    </span>
+                    <CopyButton text={(toPay / 100).toFixed(2).replace('.', ',')} />
+                  </div>
+                </div>
+              </li>
+              <li>
+                <span className="steps__n mono">03</span>
+                <div className="grow">
+                  <strong>Volvé y confirmá</strong>
+                </div>
+              </li>
+            </ol>
+            <ConfirmButton busy={busy} onConfirm={confirm} />
+          </motion.section>
+        )}
+
+        {method === 'QR' && (
+          <motion.section key="qr" className="card card--pad stack stack-4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            {venue?.cobroQrData ? (
+              <QrCode value={venue.cobroQrData} label="QR de cobro del local" />
+            ) : (
+              <p className="muted small">El local todavía no cargó su QR. Pedíselo al mozo.</p>
+            )}
+            <p className="small muted" style={{ textAlign: 'center' }}>
+              Escanealo con tu billetera y pagá <strong className="mono">{money(toPay)}</strong>.
+            </p>
+            <ConfirmButton busy={busy} onConfirm={confirm} />
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      <button className="text-btn" style={{ justifySelf: 'center' }} disabled={busy} onClick={cancel}>
+        Cancelar y liberar mi parte
+      </button>
     </main>
   );
 }
 
 function ConfirmButton({ busy, onConfirm }: { busy: boolean; onConfirm: () => void }) {
   return (
-    <div className="stack-sm">
-      <button className="btn btn-ok btn-lg btn-block" disabled={busy} onClick={onConfirm}>
-        ✓ Ya pagué
+    <div className="stack stack-2">
+      <button className="btn btn--accent btn--lg btn--block" disabled={busy} onClick={onConfirm}>
+        <Check size={18} weight="bold" />
+        Ya pagué
       </button>
-      <p className="tiny faint center">Al confirmar, tu parte figura como abonada para toda la mesa. El mozo puede verificar la transferencia.</p>
+      <p className="field__hint" style={{ textAlign: 'center' }}>
+        Tu parte figura como pagada para toda la mesa. El mozo puede verificarlo.
+      </p>
     </div>
   );
 }

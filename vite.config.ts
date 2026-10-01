@@ -18,5 +18,6 @@ export default defineConfig({
   build: {
     outDir: '../dist/client',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 800,
   },
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { VenueSettings } from '../../../shared/types.ts';
-import { QrCode, Spinner, useAction } from '../components/ui.tsx';
+import { Loader, QrCode, useAction } from '../components/ui.tsx';
 import { useDocumentTitle } from '../lib/hooks.ts';
 import { useStaff, useStaffData } from './context.tsx';
 
@@ -19,7 +19,7 @@ export function SettingsView() {
     }
   }, [data, form]);
 
-  if (!form) return <Spinner />;
+  if (!form) return <Loader />;
   const set = <K extends keyof VenueSettings>(key: K, value: VenueSettings[K]) => setForm({ ...form, [key]: value });
 
   const submit = (e: FormEvent) => {
@@ -36,78 +36,88 @@ export function SettingsView() {
   };
 
   return (
-    <form className="stack-lg" onSubmit={submit} style={{ maxWidth: 760 }}>
-      <div className="page-head">
-        <div className="stack-sm" style={{ gap: 2 }}>
-          <h1>Ajustes del local</h1>
-          <span className="small muted">La app no procesa pagos: deriva a Mercado Pago, al QR de cobro del local o al Posnet.</span>
+    <form onSubmit={submit} className="stack stack-8">
+      <header className="s-head">
+        <div className="stack stack-2">
+          <span className="eyebrow">Local</span>
+          <h1 className="display s-title">Ajustes</h1>
         </div>
-        <button className="btn btn-primary" disabled={busy}>
+        <button className="btn btn--ink" disabled={busy}>
           {busy ? 'Guardando…' : 'Guardar cambios'}
         </button>
-      </div>
+      </header>
 
-      <section className="card card-pad stack">
-        <h2>Local</h2>
-        <label className="field">
-          <span>Nombre</span>
-          <input className="input" value={form.name} onChange={(e) => set('name', e.target.value)} required maxLength={80} />
-        </label>
-        <label className="field">
-          <span>URL pública para los QR de las mesas</span>
-          <input
-            className="input"
-            value={form.publicUrl}
-            onChange={(e) => set('publicUrl', e.target.value)}
-            placeholder={window.location.origin}
-          />
-          <span className="tiny faint">Dejalo vacío para usar la dirección con la que entrás al panel (por ejemplo, la IP del local en la red Wi-Fi).</span>
-        </label>
+      <section className="settings">
+        <div className="settings__intro">
+          <h2>El local</h2>
+          <p className="small muted">Cómo aparece en los celulares y adónde apuntan los QR de las mesas.</p>
+        </div>
+        <div className="settings__fields panel panel--pad stack stack-4">
+          <label className="field">
+            <span className="field__label">Nombre</span>
+            <input className="input" value={form.name} onChange={(e) => set('name', e.target.value)} required maxLength={80} />
+          </label>
+          <label className="field">
+            <span className="field__label">Dirección pública para los QR</span>
+            <input className="input mono" value={form.publicUrl} onChange={(e) => set('publicUrl', e.target.value)} placeholder={window.location.origin} />
+            <span className="field__hint">Vacío: se usa la dirección con la que entrás al panel (por ejemplo, la IP del local en el Wi-Fi).</span>
+          </label>
+        </div>
       </section>
 
-      <section className="card card-pad stack">
-        <h2>Cobros</h2>
-        <label className="field">
-          <span>Link de Mercado Pago (botón “Abrir Mercado Pago”)</span>
-          <input className="input" value={form.mpLink} onChange={(e) => set('mpLink', e.target.value)} placeholder="https://link.mercadopago.com.ar/tulocal" />
-        </label>
-        <label className="field">
-          <span>Alias para transferencias</span>
-          <input className="input" value={form.mpAlias} onChange={(e) => set('mpAlias', e.target.value)} placeholder="tulocal.mp" />
-        </label>
-        <div className="row wrap" style={{ alignItems: 'flex-start' }}>
-          <label className="field grow" style={{ minWidth: 240 }}>
-            <span>Contenido del QR de cobro</span>
-            <textarea className="input" value={form.cobroQrData} onChange={(e) => set('cobroQrData', e.target.value)} placeholder="Link o código del QR estático de Mercado Pago" />
-            <span className="tiny faint">Es lo que el comensal escanea con su billetera al elegir “QR de cobro”.</span>
+      <section className="settings">
+        <div className="settings__intro">
+          <h2>Cobros</h2>
+          <p className="small muted">La app no procesa pagos: deriva a Mercado Pago, al QR del local o al Posnet.</p>
+        </div>
+        <div className="settings__fields panel panel--pad stack stack-4">
+          <label className="field">
+            <span className="field__label">Link de Mercado Pago</span>
+            <input className="input mono" value={form.mpLink} onChange={(e) => set('mpLink', e.target.value)} placeholder="https://link.mercadopago.com.ar/tulocal" />
           </label>
-          {form.cobroQrData && (
-            <div style={{ width: 160 }}>
-              <QrCode value={form.cobroQrData} label="Vista previa del QR de cobro" />
+          <label className="field">
+            <span className="field__label">Alias para transferencias</span>
+            <input className="input mono" value={form.mpAlias} onChange={(e) => set('mpAlias', e.target.value)} placeholder="tulocal.mp" />
+          </label>
+          <div className="qr-setting">
+            <label className="field grow">
+              <span className="field__label">Contenido del QR de cobro</span>
+              <textarea className="input mono" value={form.cobroQrData} onChange={(e) => set('cobroQrData', e.target.value)} placeholder="Link o código del QR estático de Mercado Pago" />
+              <span className="field__hint">Es lo que el comensal escanea al elegir “QR del local”.</span>
+            </label>
+            {form.cobroQrData && <QrCode value={form.cobroQrData} label="Vista previa del QR de cobro" className="qr-setting__preview" />}
+          </div>
+        </div>
+      </section>
+
+      <section className="settings">
+        <div className="settings__intro">
+          <h2>Reglas de pago</h2>
+          <p className="small muted">Lo que alguien reserva para pagar se libera si no confirma a tiempo (salvo que haya pedido el Posnet).</p>
+        </div>
+        <div className="settings__fields panel panel--pad form-grid">
+          <label className="field">
+            <span className="field__label">Tiempo de reserva</span>
+            <div className="input-affix input-affix--end">
+              <input
+                className="input mono"
+                type="number"
+                min={15}
+                max={600}
+                value={form.reservationTtlSec}
+                onChange={(e) => set('reservationTtlSec', Number(e.target.value))}
+              />
+              <span>seg</span>
             </div>
-          )}
-        </div>
-        <div className="row wrap">
-          <label className="field" style={{ width: 220 }}>
-            <span>Tiempo de reserva (segundos)</span>
-            <input
-              className="input num"
-              type="number"
-              min={15}
-              max={600}
-              value={form.reservationTtlSec}
-              onChange={(e) => set('reservationTtlSec', Number(e.target.value))}
-            />
           </label>
-          <label className="field grow" style={{ minWidth: 200 }}>
-            <span>Opciones de propina (%)</span>
-            <input className="input" value={tips} onChange={(e) => setTips(e.target.value)} placeholder="10, 15" />
+          <label className="field">
+            <span className="field__label">Opciones de propina</span>
+            <div className="input-affix input-affix--end">
+              <input className="input mono" value={tips} onChange={(e) => setTips(e.target.value)} placeholder="10, 15" />
+              <span>%</span>
+            </div>
           </label>
         </div>
-        <p className="tiny faint">
-          Si un comensal reserva algo para pagar y no confirma en ese tiempo, se libera para el resto de la mesa (salvo que haya pedido el
-          Posnet, que espera al mozo).
-        </p>
       </section>
     </form>
   );

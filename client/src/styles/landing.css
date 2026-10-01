@@ -1,0 +1,264 @@
+/* ------------------------------------------------------------------
+   Portada
+------------------------------------------------------------------- */
+
+.l-page {
+  min-height: 100dvh;
+}
+
+.l-hero {
+  background: var(--night);
+  color: var(--night-ink);
+  padding: 0 20px 72px;
+  overflow: hidden;
+}
+
+.l-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 0;
+}
+
+.l-nav__cta {
+  background: var(--night-2);
+  color: var(--night-ink);
+}
+
+.l-nav__cta:hover {
+  background: var(--night-3);
+}
+
+.l-hero__grid {
+  display: grid;
+  gap: 56px;
+  align-items: center;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-top: 40px;
+}
+
+@media (min-width: 960px) {
+  .l-hero__grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    padding-top: 72px;
+  }
+}
+
+.l-title {
+  font-size: clamp(64px, 11vw, 136px);
+  line-height: 0.86;
+  letter-spacing: -0.035em;
+}
+
+.l-title em {
+  color: var(--accent);
+}
+
+.l-lead {
+  max-width: 46ch;
+  color: var(--night-ink-2);
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.l-btn-ghost {
+  background: transparent;
+  border-color: var(--night-3);
+  color: var(--night-ink);
+}
+
+.l-btn-ghost:hover {
+  border-color: var(--night-ink-2);
+}
+
+.l-receipt {
+  width: min(380px, 100%);
+  justify-self: center;
+  color: #171512;
+  --card: #fbf9f4;
+  --ink: #171512;
+  --ink-3: #8a8276;
+  --line-strong: #c4b9a6;
+  --paper-2: #e9e2d4;
+  --paper-3: #ddd4c3;
+  --ok: #1d6a47;
+  --ok-soft: #d5e7da;
+  --accent: #e2412a;
+  --hatch: repeating-linear-gradient(135deg, #e9e2d4 0 5px, #ddd4c3 5px 10px);
+}
+
+.l-receipt .receipt {
+  padding: 28px 24px;
+}
+
+.l-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4b463e;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.l-receipt__rows {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 16px 0;
+  list-style: none;
+}
+
+.l-receipt__rows li {
+  display: grid;
+  gap: 8px;
+}
+
+.l-slices {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+}
+
+.l-slice {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.l-slice--paid {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.l-slice--mine {
+  background: var(--accent);
+  color: #fff7f0;
+}
+
+.l-slice--taken {
+  background: var(--hatch);
+  color: #8a8276;
+}
+
+.l-steps {
+  display: grid;
+  gap: 1px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 72px 20px;
+}
+
+@media (min-width: 860px) {
+  .l-steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+  }
+}
+
+.l-step {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 28px 0;
+  border-top: 1px solid var(--ink);
+}
+
+.l-step__n {
+  color: var(--accent-text);
+  font-size: 13px;
+}
+
+.l-step h2 {
+  font-size: 38px;
+}
+
+.l-step p {
+  max-width: 34ch;
+}
+
+.l-demo {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 20px 88px;
+}
+
+.l-demo__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.l-demo__head h2 {
+  font-size: clamp(44px, 6vw, 64px);
+}
+
+.l-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.l-table {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color 0.18s,
+    transform 0.18s var(--ease-out);
+}
+
+.l-table:hover {
+  border-color: var(--ink);
+  transform: translateY(-2px);
+}
+
+.l-table__num {
+  font-size: 58px;
+  line-height: 0.85;
+}
+
+.l-table__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.l-table__arrow {
+  margin-left: auto;
+  transition: transform 0.18s var(--ease-out);
+}
+
+.l-table:hover .l-table__arrow {
+  transform: translateX(3px);
+}
+
+.l-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  border-top: 1px solid var(--line);
+}

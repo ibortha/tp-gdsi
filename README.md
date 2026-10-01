@@ -8,19 +8,26 @@ al QR del local o al Posnet del mozo. El mozo / ADMIN ve todas las mesas, las co
 Esta es la **primera versión funcional (MVP)**. Implementa la definición de producto del 17/09, las User Stories
 US01–US12 y las métricas del Scope Canvas.
 
+![Portada](docs/img/00-landing.jpg)
+
 | Comensal | | | |
 |---|---|---|---|
-| ![Unirse](docs/img/01-join.jpg) | ![Menú](docs/img/02-menu.jpg) | ![Cuenta en vivo](docs/img/04-cuenta-en-vivo.jpg) | ![Elegir ítems](docs/img/05-seleccion-items.jpg) |
-| Escanea el QR y pone su nombre | Menú del local + carrito | Cuenta compartida en vivo | Elige entero / ½ / ⅓ (se reserva 1 minuto) |
-| ![Reservas](docs/img/06-meli-ve-reservas.jpg) | ![Checkout](docs/img/07-checkout-mp.jpg) | ![Dividir](docs/img/09-dividir.jpg) | ![Posnet](docs/img/10-esperando-posnet.jpg) |
-| Lo que reservó otro aparece bloqueado | Propina y medio de pago | Dividir el saldo pendiente | Espera al mozo con el Posnet |
+| ![Ingreso](docs/img/01-join.jpg) | ![Carta](docs/img/02-menu-top.jpg) | ![Cuenta](docs/img/06-cuenta.jpg) | ![Por ítems](docs/img/07-pagar-items.jpg) |
+| Escanea el QR y se sienta a la mesa | La carta, con promos y buscador | La cuenta compartida, en vivo | Entero, ½ o ⅓ de cada cosa |
+| ![Reservas](docs/img/08-meli-ve-reservas.jpg) | ![Checkout](docs/img/09-checkout.jpg) | ![División](docs/img/17-division-donut.jpg) | ![Modo oscuro](docs/img/dark-pagar.jpg) |
+| Lo que tomó otro queda bloqueado | Propina y medio de pago | Dividir el saldo en partes | Modo oscuro, para el bar de noche |
 
 | Mozo / ADMIN | |
 |---|---|
-| ![Mesas](docs/img/11-staff-mesas.jpg) | ![Detalle de mesa](docs/img/12-staff-mesa.jpg) |
-| Mapa de mesas + alerta de Posnet | Pedidos, división y pagos de una mesa |
-| ![Comandas](docs/img/16-comandas.jpg) | ![Métricas](docs/img/19-metricas.jpg) |
-| Comandas para cocina / salón | Métricas del Scope Canvas |
+| ![Salón](docs/img/15-salon.jpg) | ![Mesa](docs/img/16-mesa.jpg) |
+| Salón en vivo + alerta de Posnet | Pedidos, división y pagos de una mesa |
+| ![Comandas](docs/img/21-comandas.jpg) | ![QR](docs/img/24-qr.jpg) |
+| Comandas tipo ticket | Habladores de mesa con QR, listos para imprimir |
+
+**Diseño.** La cuenta compartida es un ticket vivo: bordes troquelados, montos en serif (Instrument Serif), interfaz en
+Schibsted Grotesk y etiquetas en DM Mono, sobre una paleta tinta/papel con un único acento. Los estados no dependen solo
+del color: rayado = reservado por otro, puntos = en la división. Íconos Phosphor, animaciones con Motion, hojas
+inferiores con Vaul, toasts con Sonner y montos animados con NumberFlow. Respeta claro/oscuro y "reducir movimiento".
 
 ## Cómo correrlo
 
@@ -123,8 +130,8 @@ flowchart LR
 - **`server/http/`** — API REST (Express 5, validación con zod). **`server/realtime.ts`** — una sala de Socket.IO por
   mesa; cada cambio envía el estado completo de la mesa a sus celulares y un aviso al staff.
 - **`server/store.ts`** — persistencia en un archivo JSON (alcanza para el prototipo; el dominio no depende de esto).
-- **`client/`** — React + Vite + TypeScript, mobile-first, modo claro/oscuro. `client/src/diner` (comensal) y
-  `client/src/staff` (panel).
+- **`client/`** — React + Vite + TypeScript, mobile-first, modo claro/oscuro. `client/src/diner` (comensal),
+  `client/src/staff` (panel, se carga aparte), `client/src/components/ui.tsx` (componentes) y `client/src/styles/`.
 - **`shared/types.ts`** — contratos compartidos entre servidor y cliente.
 - Los importes se manejan en **centavos enteros**; al dividir en mitades/tercios/partes los centavos sobrantes se
   reparten para que la suma dé exacta.

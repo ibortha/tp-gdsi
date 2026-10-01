@@ -1,10 +1,14 @@
+import { Check, CookingPot, Timer } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ItemStatus, KitchenTicketDTO } from '../../../shared/types.ts';
-import { Empty, Spinner, useAction } from '../components/ui.tsx';
-import { ITEM_STATUS_LABEL, clock, timeAgo } from '../lib/format.ts';
+import { Empty, Loader, Segmented, useAction } from '../components/ui.tsx';
+import { clock } from '../lib/format.ts';
 import { useDocumentTitle, useNow } from '../lib/hooks.ts';
 import { useStaff, useStaffData } from './context.tsx';
+import { pad2 } from './TablesView.tsx';
 
 export function KitchenView() {
   useDocumentTitle('Comandas · Pedido Grupal');
@@ -13,7 +17,7 @@ export function KitchenView() {
   const [tab, setTab] = useState<'active' | 'recent'>('active');
   const { run, busy } = useAction();
   const now = useNow(15000);
-  if (!data) return <Spinner />;
+  if (!data) return <Loader />;
 
   const setStatus = (ids: string[], status: ItemStatus) =>
     run(async () => {
@@ -23,75 +27,97 @@ export function KitchenView() {
   const tickets = tab === 'active' ? data.active : data.recent;
   return (
     <>
-      <div className="page-head">
-        <div className="stack-sm" style={{ gap: 2 }}>
-          <h1>Comandas</h1>
-          <span className="small muted">Los pedidos llegan directo desde los celulares, sin pasar por el mozo.</span>
+      <header className="s-head">
+        <div className="stack stack-2">
+          <span className="eyebrow">Llegan directo desde los celulares</span>
+          <h1 className="display s-title">Comandas</h1>
         </div>
-        <div className="seg" style={{ minWidth: 280 }}>
-          <button aria-pressed={tab === 'active'} onClick={() => setTab('active')}>
-            Por entregar ({data.active.length})
-          </button>
-          <button aria-pressed={tab === 'recent'} onClick={() => setTab('recent')}>
-            Entregadas
-          </button>
+        <div style={{ width: 300 }}>
+          <Segmented
+            label="Comandas"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'active', label: `Por servir · ${data.active.length}` },
+              { value: 'recent', label: 'Servidas' },
+            ]}
+          />
         </div>
-      </div>
+      </header>
 
       {tickets.length === 0 ? (
-        <Empty emoji={tab === 'active' ? '😌' : '🗒️'} title={tab === 'active' ? 'No hay comandas pendientes' : 'Todavía no se entregó nada'} />
+        <Empty icon={<CookingPot size={24} />} title={tab === 'active' ? 'Cocina al día' : 'Todavía no se sirvió nada'}>
+          {tab === 'active' ? 'Cuando alguien pida, la comanda aparece acá.' : undefined}
+        </Empty>
       ) : (
         <div className="tickets">
-          {tickets.map((t) => {
-            const minutes = (now - Date.parse(t.createdAt)) / 60000;
-            const open = t.items.filter((i) => i.status === 'PENDING' || i.status === 'PREPARING');
-            const late = tab === 'active' ? (minutes > 20 ? ' very-late' : minutes > 10 ? ' late' : '') : '';
-            return (
-              <article key={t.orderId} className={`ticket${late}`}>
-                <div className="row-between">
-                  <Link to={`/staff/mesas/${t.tableId}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                    <h2>Mesa {t.tableNumber}</h2>
-                  </Link>
-                  <span className="small muted">
-                    {clock(t.createdAt)} · {timeAgo(t.createdAt, now)}
-                  </span>
-                </div>
-                <span className="small muted">Pidió {t.dinerName}</span>
-                {t.note && (
-                  <div className="banner banner-warn" style={{ padding: '8px 12px' }}>
-                    <span className="small">📝 {t.note}</span>
-                  </div>
-                )}
-                <div className="stack-sm">
-                  {t.items.map((i) => (
-                    <div key={i.id} className="ticket-item" style={i.status === 'CANCELLED' ? { opacity: 0.45 } : undefined}>
-                      <span className="ticket-qty num">{i.quantity}×</span>
-                      <div className="grow">
-                        <strong className={i.status === 'CANCELLED' ? 'strike' : undefined}>{i.name}</strong>
-                        {i.note && <div className="small" style={{ color: 'var(--warn)' }}>“{i.note}”</div>}
-                      </div>
-                      {i.status === 'PENDING' && tab === 'active' ? (
-                        <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setStatus([i.id], 'PREPARING')}>
-                          Preparar
-                        </button>
-                      ) : i.status === 'PREPARING' && tab === 'active' ? (
-                        <button className="btn btn-ok btn-sm" disabled={busy} onClick={() => setStatus([i.id], 'DELIVERED')}>
-                          Entregar
-                        </button>
-                      ) : (
-                        <span className={`badge ${i.status === 'DELIVERED' ? 'badge-ok' : ''}`}>{ITEM_STATUS_LABEL[i.status]}</span>
+          <AnimatePresence initial={false}>
+            {tickets.map((t) => {
+              const minutes = Math.floor((now - Date.parse(t.createdAt)) / 60000);
+              const open = t.items.filter((i) => i.status === 'PENDING' || i.status === 'PREPARING');
+              const late = tab === 'active' ? (minutes >= 20 ? 'is-late' : minutes >= 10 ? 'is-slow' : '') : '';
+              return (
+                <motion.article
+                  key={t.orderId}
+                  layout
+                  className="ticket-wrap"
+                  initial={{ opacity: 0, y: -12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                >
+                  <div className={clsx('receipt ticket', late)}>
+                    <header className="ticket__head">
+                      <Link to={`/staff/mesas/${t.tableId}`} className="ticket__table display">
+                        Mesa {pad2(t.tableNumber)}
+                      </Link>
+                      {tab === 'active' && (
+                        <span className="ticket__age mono">
+                          <Timer size={14} />
+                          {minutes < 1 ? 'recién' : `${minutes} min`}
+                        </span>
                       )}
+                    </header>
+                    <div className="ticket__sub mono">
+                      <span>{t.dinerName}</span>
+                      <span>{clock(t.createdAt)}</span>
                     </div>
-                  ))}
-                </div>
-                {open.length > 1 && tab === 'active' && (
-                  <button className="btn btn-primary btn-sm btn-block" disabled={busy} onClick={() => setStatus(open.map((i) => i.id), 'DELIVERED')}>
-                    Entregar todo
-                  </button>
-                )}
-              </article>
-            );
-          })}
+                    <hr className="rule" />
+                    {t.note && <p className="ticket__note">{t.note}</p>}
+                    <ul className="ticket__items">
+                      {t.items.map((i) => (
+                        <li key={i.id} className={clsx('ticket__item', i.status === 'CANCELLED' && 'is-void', i.status === 'DELIVERED' && 'is-done')}>
+                          <span className="ticket__qty mono">{i.quantity}</span>
+                          <div className="grow">
+                            <strong>{i.name}</strong>
+                            {i.note && <div className="ticket__inote">{i.note}</div>}
+                          </div>
+                          {tab === 'active' && i.status === 'PENDING' && (
+                            <button className="btn btn--outline btn--sm" disabled={busy} onClick={() => setStatus([i.id], 'PREPARING')}>
+                              Preparar
+                            </button>
+                          )}
+                          {tab === 'active' && i.status === 'PREPARING' && (
+                            <button className="btn btn--ink btn--sm" disabled={busy} onClick={() => setStatus([i.id], 'DELIVERED')}>
+                              Servir
+                            </button>
+                          )}
+                          {i.status === 'DELIVERED' && <Check size={18} weight="bold" className="ticket__check" />}
+                        </li>
+                      ))}
+                    </ul>
+                    {open.length > 1 && tab === 'active' && (
+                      <>
+                        <hr className="rule" />
+                        <button className="btn btn--accent btn--block" disabled={busy} onClick={() => setStatus(open.map((i) => i.id), 'DELIVERED')}>
+                          Servir todo
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </motion.article>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </>

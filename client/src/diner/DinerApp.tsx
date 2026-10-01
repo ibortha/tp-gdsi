@@ -1,10 +1,13 @@
+import { ArrowRight, BookOpenText, Receipt, SealQuestion, Wallet, type Icon } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import type { DinerDTO } from '../../../shared/types.ts';
-import { Avatar, Spinner } from '../components/ui.tsx';
+import { AvatarStack, Loader, Wordmark } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
 import { useDocumentTitle } from '../lib/hooks.ts';
 import { load, save } from '../lib/storage.ts';
+import { toPeople } from '../lib/tones.ts';
 import { MenuTab, type Cart } from './MenuTab.tsx';
 import { PayTab } from './PayTab.tsx';
 import { TableTab } from './TableTab.tsx';
@@ -20,6 +23,8 @@ interface TableInfo {
   diners: string[];
 }
 
+export const pad = (n: number) => String(n).padStart(2, '0');
+
 export function DinerApp() {
   const { qrToken = '' } = useParams();
   const session = useDinerSession(qrToken);
@@ -32,26 +37,57 @@ export function DinerApp() {
 
   useDocumentTitle(table ? `Mesa ${table.number} · ${table.venueName}` : 'Pedido Grupal');
 
-  if (tableError)
+  if (tableError) return <NightScreen icon={SealQuestion} title="Este QR no es de ninguna mesa" text={tableError} />;
+  if (session.status === 'closed')
     return (
-      <div className="diner-shell">
-        <div className="hero">
-          <div className="hero-emoji">🤔</div>
-          <h1>QR inválido</h1>
-          <p className="muted">{tableError}</p>
-        </div>
-      </div>
+      <NightScreen
+        title={<>Gracias por <em>venir</em>.</>}
+        text={`El mozo cerró la mesa${table ? ` en ${table.venueName}` : ''}. Si siguen sentados, pueden volver a unirse.`}
+        action={{ label: 'Volver a la mesa', onClick: session.leave }}
+      />
     );
-  if (session.status === 'closed') return <ClosedScreen onRejoin={session.leave} venueName={table?.venueName} />;
-  if (session.status === 'join') return table ? <JoinScreen table={table} onJoin={session.join} /> : <Spinner />;
-  if (!session.snapshot || !session.auth) return <Spinner label="Conectando con la mesa…" />;
+  if (session.status === 'join') return table ? <JoinScreen table={table} onJoin={session.join} /> : <Loader />;
+  if (!session.snapshot || !session.auth) return <Loader label="Conectando con la mesa" />;
   return <SeatedApp session={session} qrToken={qrToken} />;
+}
+
+function NightScreen({
+  icon: IconCmp,
+  title,
+  text,
+  action,
+}: {
+  icon?: Icon;
+  title: React.ReactNode;
+  text: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="night">
+      <div className="night__top">
+        <Wordmark size={18} />
+      </div>
+      <div className="night__body">
+        {IconCmp && <IconCmp size={40} weight="light" />}
+        <h1 className="display night__title">{title}</h1>
+        <p className="night__text">{text}</p>
+        {action && (
+          <button className="btn btn--accent btn--lg" onClick={action.onClick}>
+            {action.label}
+            <ArrowRight weight="bold" size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function JoinScreen({ table, onJoin }: { table: TableInfo; onJoin: (name: string) => Promise<void> }) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const seated = useMemo(() => table.diners.map((n, i) => ({ id: `${i}`, name: n })), [table.diners]);
+  const people = [...toPeople(seated.map((d) => ({ ...d, color: '', joinedAt: '' }))).values()];
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,24 +103,47 @@ function JoinScreen({ table, onJoin }: { table: TableInfo; onJoin: (name: string
   };
 
   return (
-    <div className="diner-shell">
-      <form className="hero" onSubmit={submit} style={{ paddingTop: 56 }}>
-        <span className="table-tag">Mesa {table.number}</span>
-        <div className="hero-emoji" aria-hidden="true">
-          🍻
-        </div>
-        <div className="stack-sm">
-          <h1>{table.venueName}</h1>
-          <p className="muted">Pedí desde tu celular y dividan la cuenta sin hacer cuentas.</p>
-        </div>
+    <div className="night join">
+      <div className="night__top">
+        <Wordmark size={18} />
+        <span className="eyebrow eyebrow--night">{table.label || 'Salón'}</span>
+      </div>
+      <motion.div
+        className="join__hero"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <span className="eyebrow eyebrow--night">{table.venueName}</span>
+        <h1 className="display join__title">
+          Mesa <em>{pad(table.number)}</em>
+        </h1>
+        <p className="join__lead">Pidan desde el celular. Al final, cada uno paga lo suyo — sin calculadora.</p>
+      </motion.div>
+
+      <motion.form
+        className="join__card"
+        onSubmit={submit}
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      >
         {!table.active ? (
-          <div className="form-error">Esta mesa no está habilitada en este momento. Avisale al mozo.</div>
+          <div className="form-error">Esta mesa no está habilitada. Avisale al mozo.</div>
         ) : (
-          <div className="card card-pad stack" style={{ width: '100%', textAlign: 'left' }}>
+          <>
+            {people.length > 0 && (
+              <div className="join__who">
+                <AvatarStack people={people} />
+                <span className="small muted">
+                  Ya {people.length === 1 ? 'está' : 'están'} <strong>{formatNames(people.map((p) => p.name))}</strong>
+                </span>
+              </div>
+            )}
             <label className="field">
-              <span>¿Cómo te llamás?</span>
+              <span className="field__label">¿Cómo te llamás?</span>
               <input
-                className="input input-lg"
+                className="input input--lg"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Tu nombre o apodo"
@@ -94,39 +153,32 @@ function JoinScreen({ table, onJoin }: { table: TableInfo; onJoin: (name: string
                 required
               />
             </label>
-            <p className="small faint">Así te van a ver tus amigos de la mesa y el mozo.</p>
-            {table.diners.length > 0 && (
-              <p className="small muted">
-                Ya están en la mesa: <strong>{table.diners.join(', ')}</strong>
-              </p>
-            )}
             {error && <div className="form-error">{error}</div>}
-            <button className="btn btn-primary btn-lg btn-block" disabled={busy || !name.trim()}>
-              {busy ? 'Entrando…' : 'Unirme a la mesa'}
+            <button className="btn btn--accent btn--lg btn--block btn--split" disabled={busy || !name.trim()}>
+              {busy ? 'Entrando…' : 'Sentarme a la mesa'}
+              <ArrowRight weight="bold" size={18} />
             </button>
-          </div>
+            <p className="field__hint" style={{ textAlign: 'center' }}>
+              Tu nombre aparece en la cuenta compartida.
+            </p>
+          </>
         )}
-      </form>
+      </motion.form>
     </div>
   );
 }
 
-function ClosedScreen({ onRejoin, venueName }: { onRejoin: () => void; venueName?: string }) {
-  return (
-    <div className="diner-shell">
-      <div className="hero" style={{ paddingTop: 72 }}>
-        <div className="hero-emoji">👋</div>
-        <h1>¡Gracias por venir!</h1>
-        <p className="muted">
-          El mozo cerró la mesa{venueName ? ` en ${venueName}` : ''}. Si siguen en la mesa, pueden volver a unirse.
-        </p>
-        <button className="btn btn-secondary" onClick={onRejoin}>
-          Volver a unirme
-        </button>
-      </div>
-    </div>
-  );
+export function formatNames(names: string[]): string {
+  if (names.length <= 1) return names.join('');
+  if (names.length === 2) return `${names[0]} y ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }
+
+const TABS: { id: Tab; label: string; icon: Icon }[] = [
+  { id: 'menu', label: 'Carta', icon: BookOpenText },
+  { id: 'table', label: 'Cuenta', icon: Receipt },
+  { id: 'pay', label: 'Pagar', icon: Wallet },
+];
 
 function SeatedApp({ session, qrToken }: { session: DinerSession; qrToken: string }) {
   const snapshot = session.snapshot!;
@@ -146,67 +198,65 @@ function SeatedApp({ session, qrToken }: { session: DinerSession; qrToken: strin
     save(cartKey, next);
   };
 
-  const diners = useMemo(() => new Map<string, DinerDTO>(snapshot.diners.map((d) => [d.id, d])), [snapshot.diners]);
+  const people = useMemo(() => toPeople(snapshot.diners), [snapshot.diners]);
   const myPayment = snapshot.payments.find(
     (p) => p.dinerId === me && (p.status === 'RESERVED' || p.status === 'AWAITING_POSNET'),
   );
-  const activeItems = snapshot.items.filter((i) => i.status !== 'CANCELLED').length;
-  const meDiner = diners.get(me);
+  const items = snapshot.items.filter((i) => i.status !== 'CANCELLED').length;
+  const inCart = Object.values(cart).reduce((s, l) => s + l.quantity, 0);
+  const badges: Record<Tab, string | null> = {
+    menu: inCart > 0 ? String(inCart) : null,
+    table: items > 0 ? String(items) : null,
+    pay: myPayment ? '•' : null,
+  };
 
   return (
-    <div className="diner-shell">
-      <header className="diner-top">
-        <div className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="table-tag">Mesa {snapshot.table.number}</span>
-            {!session.connected && <span className="badge badge-warn">Reconectando…</span>}
-          </div>
-          <span className="small muted ellipsis">{session.venue?.name ?? ''}</span>
+    <div className="d-shell">
+      <header className="d-top">
+        <div className="d-top__id">
+          <span className="d-top__table">
+            <span className="display">Mesa</span>
+            <span className="mono">{pad(snapshot.table.number)}</span>
+          </span>
+          <span className="eyebrow ellipsis">{session.venue?.name ?? ''}</span>
         </div>
-        <div className="row" style={{ gap: 8 }}>
-          <div className="avatar-stack" aria-label={`En la mesa: ${snapshot.diners.map((d) => d.name).join(', ')}`}>
-            {snapshot.diners.slice(0, 5).map((d) => (
-              <Avatar key={d.id} name={d.name} color={d.color} />
-            ))}
-          </div>
-          {snapshot.diners.length > 5 && <span className="small muted">+{snapshot.diners.length - 5}</span>}
+        <div className="row" style={{ gap: 12 }}>
+          <span className={clsx('d-live', !session.connected && 'is-off')}>
+            <span className={clsx('dot', session.connected && 'dot--live')} />
+            {session.connected ? 'En vivo' : 'Sin conexión'}
+          </span>
+          <AvatarStack people={[...people.values()]} />
         </div>
       </header>
 
-      {meDiner && tab === 'menu' && (
-        <p className="small muted" style={{ padding: '12px 16px 0' }}>
-          Hola, <strong>{meDiner.name}</strong> 👋 Lo que pidas se suma a la cuenta de la mesa.
-        </p>
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {tab === 'menu' && <MenuTab session={session} cart={cart} setCart={setCart} onOrdered={() => setTab('table')} />}
+          {tab === 'table' && <TableTab session={session} me={me} people={people} onPay={() => setTab('pay')} />}
+          {tab === 'pay' && <PayTab session={session} me={me} people={people} onGoToMenu={() => setTab('menu')} />}
+        </motion.div>
+      </AnimatePresence>
 
-      {tab === 'menu' && <MenuTab session={session} cart={cart} setCart={setCart} onOrdered={() => setTab('table')} />}
-      {tab === 'table' && <TableTab snapshot={snapshot} me={me} diners={diners} onPay={() => setTab('pay')} />}
-      {tab === 'pay' && <PayTab session={session} me={me} diners={diners} onGoToMenu={() => setTab('menu')} />}
-
-      <nav className="bottom-nav" aria-label="Secciones">
-        <div className="bottom-nav-inner">
-          <button aria-current={tab === 'menu' ? 'page' : undefined} onClick={() => setTab('menu')}>
-            <span className="nav-icon" aria-hidden="true">
-              📖
-            </span>
-            Menú
-            {Object.keys(cart).length > 0 && <span className="nav-badge">{Object.values(cart).reduce((s, l) => s + l.quantity, 0)}</span>}
-          </button>
-          <button aria-current={tab === 'table' ? 'page' : undefined} onClick={() => setTab('table')}>
-            <span className="nav-icon" aria-hidden="true">
-              🧾
-            </span>
-            Cuenta
-            {activeItems > 0 && <span className="nav-badge">{activeItems}</span>}
-          </button>
-          <button aria-current={tab === 'pay' ? 'page' : undefined} onClick={() => setTab('pay')}>
-            <span className="nav-icon" aria-hidden="true">
-              💳
-            </span>
-            Pagar
-            {myPayment && <span className="nav-badge">!</span>}
-          </button>
-        </div>
+      <nav className="d-nav" aria-label="Secciones">
+        {TABS.map(({ id, label, icon: IconCmp }) => {
+          const active = tab === id;
+          return (
+            <button key={id} className="d-nav__item" aria-current={active ? 'page' : undefined} onClick={() => setTab(id)}>
+              {active && <motion.span layoutId="d-nav-pill" className="d-nav__pill" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />}
+              <span className="d-nav__icon">
+                <IconCmp size={22} weight={active ? 'fill' : 'regular'} />
+                {badges[id] && <span className="d-nav__badge">{badges[id]}</span>}
+              </span>
+              <span className="d-nav__label">{label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );

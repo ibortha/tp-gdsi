@@ -1,8 +1,29 @@
+import { ArrowClockwise, ArrowUpRight, Plus, Printer, Trash } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useState, type FormEvent } from 'react';
 import type { TableSummaryDTO, VenueSettings } from '../../../shared/types.ts';
-import { CopyButton, QrCode, Spinner, Switch, useAction, useConfirm } from '../components/ui.tsx';
+import { CopyButton, Loader, LogoMark, QrCode, Switch, useAction, useConfirm } from '../components/ui.tsx';
 import { useDocumentTitle } from '../lib/hooks.ts';
 import { useStaff, useStaffData } from './context.tsx';
+import { pad2 } from './TablesView.tsx';
+
+/** Hablador de mesa: lo que se imprime y se apoya en cada mesa. */
+export function TableTent({ number, url, venueName, label }: { number: number; url: string; venueName: string; label: string }) {
+  return (
+    <div className="tent">
+      <div className="tent__top">
+        <LogoMark size={22} />
+        <span className="eyebrow">{label || 'Salón'}</span>
+      </div>
+      <div className="tent__title display">
+        Mesa <em>{pad2(number)}</em>
+      </div>
+      <QrCode value={url} label={`QR de la mesa ${number}`} className="tent__qr" />
+      <p className="tent__copy">Escaneá, pedí desde tu celular y dividan la cuenta.</p>
+      <span className="tent__venue mono">{venueName}</span>
+    </div>
+  );
+}
 
 export function TablesAdmin() {
   useDocumentTitle('Mesas y QR · Pedido Grupal');
@@ -14,7 +35,7 @@ export function TablesAdmin() {
   const [printOnly, setPrintOnly] = useState<string | null>(null);
   const [number, setNumber] = useState('');
   const [label, setLabel] = useState('');
-  if (!tables || !venue) return <Spinner />;
+  if (!tables || !venue) return <Loader />;
 
   const base = venue.publicUrl || window.location.origin;
   const urlOf = (t: TableSummaryDTO) => `${base}/m/${t.qrToken}`;
@@ -22,7 +43,7 @@ export function TablesAdmin() {
 
   const print = (tableId: string | null) => {
     setPrintOnly(tableId);
-    window.setTimeout(() => window.print(), 50);
+    window.setTimeout(() => window.print(), 60);
   };
 
   const add = (e: FormEvent) => {
@@ -36,86 +57,84 @@ export function TablesAdmin() {
 
   const regenerate = async (t: TableSummaryDTO) => {
     const ok = await confirm({
-      title: `Regenerar el QR de la mesa ${t.number}`,
-      message: 'El QR impreso actual deja de funcionar: vas a tener que imprimir y pegar el nuevo.',
-      confirmLabel: 'Regenerar',
+      title: `Nuevo QR para la mesa ${pad2(t.number)}`,
+      message: 'El QR impreso actual deja de funcionar: vas a tener que imprimir el nuevo.',
+      confirmLabel: 'Generar nuevo QR',
       danger: true,
     });
     if (ok) await run(() => call(`/api/admin/tables/${t.id}/regenerate-qr`, { method: 'POST' }), 'QR regenerado');
   };
 
   const remove = async (t: TableSummaryDTO) => {
-    if (await confirm({ title: `Eliminar la mesa ${t.number}`, confirmLabel: 'Eliminar', danger: true }))
+    if (await confirm({ title: `Eliminar la mesa ${pad2(t.number)}`, confirmLabel: 'Eliminar', danger: true }))
       await run(() => call(`/api/admin/tables/${t.id}`, { method: 'DELETE' }), 'Mesa eliminada');
   };
 
   return (
     <>
-      <div className="page-head no-print">
-        <div className="stack-sm" style={{ gap: 2 }}>
-          <h1>Mesas y QR</h1>
-          <span className="small muted">
-            Cada mesa tiene su propio QR. Todas comparten el mismo menú. Los QR apuntan a <strong>{base}</strong>
-            {venue.publicUrl ? '' : ' (podés cambiarlo en Ajustes)'}.
-          </span>
+      <header className="s-head no-print">
+        <div className="stack stack-2">
+          <span className="eyebrow">{tables.length} mesas · un QR por mesa</span>
+          <h1 className="display s-title">Mesas y QR</h1>
+          <p className="small muted">
+            Los QR apuntan a <span className="mono">{base}</span>
+            {venue.publicUrl ? '' : ' — se puede cambiar en Ajustes'}.
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={() => print(null)}>
-          🖨️ Imprimir todos
+        <button className="btn btn--ink" onClick={() => print(null)}>
+          <Printer size={18} /> Imprimir todos
         </button>
-      </div>
+      </header>
 
-      <form className="card card-pad row wrap no-print" onSubmit={add}>
-        <label className="field" style={{ width: 120 }}>
-          <span>Número</span>
-          <input className="input num" inputMode="numeric" value={number} onChange={(e) => setNumber(e.target.value.replace(/\D/g, ''))} placeholder={String(suggested)} />
-        </label>
-        <label className="field grow" style={{ minWidth: 160 }}>
-          <span>Sector (opcional)</span>
-          <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Salón, Patio, Barra…" maxLength={40} />
-        </label>
-        <button className="btn btn-secondary" style={{ alignSelf: 'flex-end' }} disabled={busy}>
-          + Agregar mesa
+      <form className="inline-form no-print" onSubmit={add}>
+        <input
+          className="input mono"
+          style={{ flex: 'none', width: 120 }}
+          inputMode="numeric"
+          aria-label="Número de mesa"
+          value={number}
+          onChange={(e) => setNumber(e.target.value.replace(/\D/g, ''))}
+          placeholder={`N.º ${suggested}`}
+        />
+        <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Sector — Salón, Patio, Barra…" maxLength={40} aria-label="Sector" />
+        <button className="btn btn--outline" disabled={busy}>
+          <Plus size={16} /> Agregar mesa
         </button>
       </form>
 
-      <div className="qr-cards">
+      <div className="tents">
         {tables.map((t) => (
-          <article key={t.id} className={`card qr-card${printOnly && printOnly !== t.id ? ' not-selected' : ''}`}>
-            <div className="row-between">
-              <h2>Mesa {t.number}</h2>
-              {t.label && <span className="badge">{t.label}</span>}
-            </div>
-            <QrCode value={urlOf(t)} label={`QR de la mesa ${t.number}`} />
-            <p className="print-only" style={{ fontWeight: 700 }}>
-              Escaneá para pedir y dividir la cuenta · {venue.name}
-            </p>
-            <div className="no-print stack-sm">
-              <div className="copy-row">
-                <span className="tiny ellipsis grow">{urlOf(t)}</span>
+          <article key={t.id} className={clsx('tent-card', printOnly && printOnly !== t.id && 'not-printed', !t.active && 'is-off')}>
+            <TableTent number={t.number} url={urlOf(t)} venueName={venue.name} label={t.label} />
+            <div className="tent-card__tools no-print">
+              <div className="copy-field">
+                <span className="grow mono tiny ellipsis">{urlOf(t).replace(/^https?:\/\//, '')}</span>
                 <CopyButton text={urlOf(t)} />
               </div>
-              <div className="row wrap" style={{ gap: 6 }}>
-                <a className="btn btn-secondary btn-sm" href={`/m/${t.qrToken}`} target="_blank" rel="noreferrer">
-                  Abrir ↗
-                </a>
-                <button className="btn btn-secondary btn-sm" onClick={() => print(t.id)}>
-                  Imprimir
-                </button>
-                <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => regenerate(t)}>
-                  Regenerar
-                </button>
-                {!t.session && (
-                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove(t)}>
-                    Eliminar
+              <div className="between">
+                <Switch
+                  checked={t.active}
+                  disabled={busy}
+                  label={t.active ? 'Habilitada' : 'Deshabilitada'}
+                  onChange={(active) => run(() => call(`/api/admin/tables/${t.id}`, { method: 'PATCH', body: { active } }))}
+                />
+                <div className="row" style={{ gap: 2 }}>
+                  <a className="btn btn--ghost btn--icon btn--sm" href={`/m/${t.qrToken}`} target="_blank" rel="noreferrer" title="Abrir como comensal" aria-label="Abrir como comensal">
+                    <ArrowUpRight size={16} />
+                  </a>
+                  <button className="btn btn--ghost btn--icon btn--sm" onClick={() => print(t.id)} title="Imprimir" aria-label="Imprimir">
+                    <Printer size={16} />
                   </button>
-                )}
+                  <button className="btn btn--ghost btn--icon btn--sm" disabled={busy} onClick={() => regenerate(t)} title="Regenerar QR" aria-label="Regenerar QR">
+                    <ArrowClockwise size={16} />
+                  </button>
+                  {!t.session && (
+                    <button className="btn btn--ghost btn--icon btn--sm" disabled={busy} onClick={() => remove(t)} title="Eliminar" aria-label="Eliminar mesa">
+                      <Trash size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-              <Switch
-                checked={t.active}
-                disabled={busy}
-                label={t.active ? 'Habilitada' : 'Deshabilitada'}
-                onChange={(active) => run(() => call(`/api/admin/tables/${t.id}`, { method: 'PATCH', body: { active } }))}
-              />
             </div>
           </article>
         ))}

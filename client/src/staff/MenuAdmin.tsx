@@ -1,6 +1,7 @@
+import { ArrowDown, ArrowUp, BookOpenText, ImageSquare, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
 import { useState, type FormEvent } from 'react';
 import type { MenuCategoryDTO, MenuDTO, MenuItemDTO } from '../../../shared/types.ts';
-import { Empty, Sheet, Spinner, Switch, useAction, useConfirm } from '../components/ui.tsx';
+import { Empty, Loader, Sheet, Switch, useAction, useConfirm } from '../components/ui.tsx';
 import { errorMessage } from '../lib/api.ts';
 import { centsToPesosInput, money, pesosToCents } from '../lib/format.ts';
 import { useDocumentTitle } from '../lib/hooks.ts';
@@ -14,26 +15,31 @@ async function resizeImage(file: File, max = 640): Promise<string> {
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
   canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.8);
+  return canvas.toDataURL('image/jpeg', 0.82);
 }
 
 export function MenuAdmin() {
-  useDocumentTitle('Menú · Pedido Grupal');
+  useDocumentTitle('Carta · Pedido Grupal');
   const { call } = useStaff();
   const { data: menu } = useStaffData<MenuDTO>('/api/public/menu');
-  const [editing, setEditing] = useState<MenuItemDTO | 'new' | null>(null);
+  // El formulario se monta de nuevo en cada apertura, pero se mantiene durante la animación de cierre.
+  const [sheet, setSheet] = useState<{ open: boolean; item: MenuItemDTO | null; key: number }>({ open: false, item: null, key: 0 });
+  const openForm = (item: MenuItemDTO | null) => setSheet((s) => ({ open: true, item, key: s.key + 1 }));
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const { run, busy } = useAction();
   const confirm = useConfirm();
-  if (!menu) return <Spinner />;
+  if (!menu) return <Loader />;
 
   const categories = menu.categories.slice().sort((a, b) => a.sort - b.sort);
+  const total = menu.items.length;
+  const out = menu.items.filter((i) => !i.available).length;
 
   const toggle = (item: MenuItemDTO, available: boolean) =>
-    run(() => call(`/api/admin/items/${item.id}`, { method: 'PATCH', body: { available } }), available ? `${item.name} disponible` : `${item.name} marcado como agotado`);
+    run(() => call(`/api/admin/items/${item.id}`, { method: 'PATCH', body: { available } }), available ? `${item.name} disponible` : `${item.name} agotado`);
 
   const remove = async (item: MenuItemDTO) => {
-    if (await confirm({ title: `Eliminar ${item.name}`, message: 'Deja de aparecer en el menú. Los pedidos ya hechos no cambian.', confirmLabel: 'Eliminar', danger: true }))
+    if (await confirm({ title: `Eliminar ${item.name}`, message: 'Deja de aparecer en la carta. Los pedidos ya hechos no cambian.', confirmLabel: 'Eliminar', danger: true }))
       await run(() => call(`/api/admin/items/${item.id}`, { method: 'DELETE' }), 'Producto eliminado');
   };
 
@@ -41,20 +47,20 @@ export function MenuAdmin() {
     const index = categories.findIndex((c) => c.id === category.id);
     const other = categories[index + delta];
     if (!other) return;
-    return run(async () => {
+    void run(async () => {
       await call(`/api/admin/categories/${category.id}`, { method: 'PATCH', body: { sort: other.sort } });
       await call(`/api/admin/categories/${other.id}`, { method: 'PATCH', body: { sort: category.sort } });
     });
   };
 
-  const rename = async (category: MenuCategoryDTO) => {
-    const name = window.prompt('Nuevo nombre de la categoría', category.name);
-    if (name && name.trim() !== category.name)
-      await run(() => call(`/api/admin/categories/${category.id}`, { method: 'PATCH', body: { name } }));
+  const rename = (category: MenuCategoryDTO, name: string) => {
+    setRenaming(null);
+    if (name.trim() && name.trim() !== category.name)
+      void run(() => call(`/api/admin/categories/${category.id}`, { method: 'PATCH', body: { name } }));
   };
 
   const removeCategory = async (category: MenuCategoryDTO) => {
-    if (await confirm({ title: `Eliminar la categoría ${category.name}`, confirmLabel: 'Eliminar', danger: true }))
+    if (await confirm({ title: `Eliminar “${category.name}”`, confirmLabel: 'Eliminar', danger: true }))
       await run(() => call(`/api/admin/categories/${category.id}`, { method: 'DELETE' }), 'Categoría eliminada');
   };
 
@@ -68,96 +74,111 @@ export function MenuAdmin() {
 
   return (
     <>
-      <div className="page-head">
-        <div className="stack-sm" style={{ gap: 2 }}>
-          <h1>Menú del local</h1>
-          <span className="small muted">Es el mismo para todas las mesas. Los cambios se ven al instante en todos los celulares.</span>
+      <header className="s-head">
+        <div className="stack stack-2">
+          <span className="eyebrow">
+            {total} productos{out > 0 ? ` · ${out} agotados` : ''}
+          </span>
+          <h1 className="display s-title">Carta</h1>
+          <p className="small muted">La misma para todas las mesas. Los cambios llegan al instante a los celulares.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing('new')} disabled={categories.length === 0}>
-          + Nuevo producto
+        <button className="btn btn--ink" onClick={() => openForm(null)} disabled={categories.length === 0}>
+          <Plus size={18} weight="bold" /> Nuevo producto
         </button>
-      </div>
+      </header>
+
+      {categories.length === 0 && <Empty icon={<BookOpenText size={24} />} title="Empezá con una categoría" />}
 
       {categories.map((category, index) => {
         const items = menu.items.filter((i) => i.categoryId === category.id);
         return (
-          <section key={category.id} className="stack-sm">
-            <div className="row-between">
-              <h2>{category.name}</h2>
-              <div className="row" style={{ gap: 4 }}>
-                <button className="icon-btn" aria-label="Subir categoría" disabled={busy || index === 0} onClick={() => move(category, -1)}>
-                  ↑
+          <section key={category.id} className="panel">
+            <header className="panel__head">
+              {renaming === category.id ? (
+                <input
+                  className="input"
+                  style={{ maxWidth: 320, height: 40 }}
+                  defaultValue={category.name}
+                  autoFocus
+                  onBlur={(e) => rename(category, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') rename(category, e.currentTarget.value);
+                    if (e.key === 'Escape') setRenaming(null);
+                  }}
+                />
+              ) : (
+                <h2 className="display" style={{ fontSize: 30 }}>
+                  {category.name}
+                </h2>
+              )}
+              <div className="row" style={{ gap: 2 }}>
+                <button className="btn btn--ghost btn--icon btn--sm" title="Subir" aria-label="Subir categoría" disabled={busy || index === 0} onClick={() => move(category, -1)}>
+                  <ArrowUp size={16} />
                 </button>
-                <button className="icon-btn" aria-label="Bajar categoría" disabled={busy || index === categories.length - 1} onClick={() => move(category, 1)}>
-                  ↓
+                <button className="btn btn--ghost btn--icon btn--sm" title="Bajar" aria-label="Bajar categoría" disabled={busy || index === categories.length - 1} onClick={() => move(category, 1)}>
+                  <ArrowDown size={16} />
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => rename(category)}>
-                  Renombrar
+                <button className="btn btn--ghost btn--icon btn--sm" title="Renombrar" aria-label="Renombrar categoría" onClick={() => setRenaming(category.id)}>
+                  <PencilSimple size={16} />
                 </button>
                 {items.length === 0 && (
-                  <button className="btn btn-ghost btn-sm" onClick={() => removeCategory(category)}>
-                    Eliminar
+                  <button className="btn btn--ghost btn--icon btn--sm" title="Eliminar" aria-label="Eliminar categoría" onClick={() => removeCategory(category)}>
+                    <Trash size={16} />
                   </button>
                 )}
               </div>
-            </div>
-            <div className="card list">
-              {items.length === 0 && <div className="list-item small muted">Sin productos</div>}
+            </header>
+            <ul className="admin-list">
+              {items.length === 0 && <li className="admin-row small muted">Sin productos</li>}
               {items.map((item) => (
-                <div key={item.id} className="list-item row wrap" style={{ gap: 12 }}>
-                  {item.imageUrl && <img src={item.imageUrl} alt="" className="menu-thumb" style={{ width: 52, height: 52 }} />}
-                  <div className="grow" style={{ minWidth: 180 }}>
+                <li key={item.id} className="admin-row">
+                  <span className="admin-row__thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <ImageSquare size={20} />}</span>
+                  <div className="grow stack" style={{ gap: 2, minWidth: 180 }}>
                     <div className="row" style={{ gap: 8 }}>
                       <strong>{item.name}</strong>
-                      {item.promoPrice !== null && <span className="badge badge-accent">{item.promoLabel}</span>}
+                      {item.promoPrice !== null && <span className="tag tag--accent">{item.promoLabel}</span>}
                     </div>
-                    <div className="small muted num">
-                      {item.promoPrice !== null ? (
-                        <>
-                          {money(item.promoPrice)} <span className="strike">{money(item.price)}</span>
-                        </>
-                      ) : (
-                        money(item.price)
-                      )}
-                      {item.description ? ` · ${item.description}` : ''}
-                    </div>
+                    {item.description && <span className="small muted ellipsis">{item.description}</span>}
                   </div>
+                  <span className="admin-row__price mono">
+                    {item.promoPrice !== null ? (
+                      <>
+                        {money(item.promoPrice)}
+                        <span className="strike faint tiny">{money(item.price)}</span>
+                      </>
+                    ) : (
+                      money(item.price)
+                    )}
+                  </span>
                   <Switch checked={item.available} onChange={(v) => toggle(item, v)} label={item.available ? 'Disponible' : 'Agotado'} disabled={busy} />
-                  <button className="btn btn-secondary btn-sm" onClick={() => setEditing(item)}>
-                    Editar
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => remove(item)}>
-                    Eliminar
-                  </button>
-                </div>
+                  <div className="row" style={{ gap: 2 }}>
+                    <button className="btn btn--ghost btn--icon btn--sm" onClick={() => openForm(item)} aria-label={`Editar ${item.name}`} title="Editar">
+                      <PencilSimple size={16} />
+                    </button>
+                    <button className="btn btn--ghost btn--icon btn--sm" onClick={() => remove(item)} aria-label={`Eliminar ${item.name}`} title="Eliminar">
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
         );
       })}
 
-      {categories.length === 0 && <Empty emoji="📖" title="Empezá creando una categoría" />}
-
-      <form className="card card-pad row wrap" onSubmit={addCategory}>
-        <input
-          className="input grow"
-          style={{ minWidth: 200 }}
-          placeholder="Nueva categoría (ej.: Tragos)"
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
-          maxLength={60}
-        />
-        <button className="btn btn-secondary" disabled={busy || !newCategory.trim()}>
-          Agregar categoría
+      <form className="inline-form" onSubmit={addCategory}>
+        <input className="input" placeholder="Nueva categoría — por ejemplo, Tragos" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} maxLength={60} />
+        <button className="btn btn--outline" disabled={busy || !newCategory.trim()}>
+          <Plus size={16} /> Agregar categoría
         </button>
       </form>
 
-      {editing && <ItemForm item={editing === 'new' ? null : editing} categories={categories} onClose={() => setEditing(null)} />}
+      <ItemForm key={sheet.key} item={sheet.item} open={sheet.open} categories={categories} onClose={() => setSheet((s) => ({ ...s, open: false }))} />
     </>
   );
 }
 
-function ItemForm({ item, categories, onClose }: { item: MenuItemDTO | null; categories: MenuCategoryDTO[]; onClose: () => void }) {
+function ItemForm({ item, open, categories, onClose }: { item: MenuItemDTO | null; open: boolean; categories: MenuCategoryDTO[]; onClose: () => void }) {
   const { call } = useStaff();
   const { run, busy } = useAction();
   const [form, setForm] = useState({
@@ -196,23 +217,33 @@ function ItemForm({ item, categories, onClose }: { item: MenuItemDTO | null; cat
     }, item ? 'Producto actualizado' : 'Producto creado');
   };
 
+  const uploaded = form.imageUrl.startsWith('data:');
+
   return (
     <Sheet
-      title={item ? `Editar ${item.name}` : 'Nuevo producto'}
+      side="right"
+      open={open}
       onClose={onClose}
+      eyebrow={item ? 'Editar producto' : 'Nuevo producto'}
+      title={item ? item.name : 'Producto nuevo'}
       footer={
-        <button className="btn btn-primary btn-block" form="item-form" disabled={busy}>
-          {busy ? 'Guardando…' : 'Guardar'}
-        </button>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            Cancelar
+          </button>
+          <button className="btn btn--ink" form="item-form" disabled={busy}>
+            {busy ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
       }
     >
-      <form id="item-form" className="stack" onSubmit={submit}>
+      <form id="item-form" className="stack stack-4" onSubmit={submit}>
         <label className="field">
-          <span>Nombre</span>
+          <span className="field__label">Nombre</span>
           <input className="input" value={form.name} onChange={(e) => set('name', e.target.value)} required maxLength={80} />
         </label>
         <label className="field">
-          <span>Categoría</span>
+          <span className="field__label">Categoría</span>
           <select className="input" value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -222,39 +253,45 @@ function ItemForm({ item, categories, onClose }: { item: MenuItemDTO | null; cat
           </select>
         </label>
         <label className="field">
-          <span>Descripción / ingredientes</span>
+          <span className="field__label">Descripción e ingredientes</span>
           <textarea className="input" value={form.description} onChange={(e) => set('description', e.target.value)} maxLength={400} />
         </label>
-        <div className="row wrap" style={{ alignItems: 'flex-start' }}>
-          <label className="field grow">
-            <span>Precio ($)</span>
-            <input className="input num" inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} required placeholder="6200" />
+        <div className="form-grid">
+          <label className="field">
+            <span className="field__label">Precio</span>
+            <div className="input-affix">
+              <span>$</span>
+              <input className="input mono" inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} required placeholder="6200" />
+            </div>
           </label>
-          <label className="field grow">
-            <span>Precio promo ($, opcional)</span>
-            <input className="input num" inputMode="decimal" value={form.promoPrice} onChange={(e) => set('promoPrice', e.target.value)} placeholder="—" />
+          <label className="field">
+            <span className="field__label">Precio promo</span>
+            <div className="input-affix">
+              <span>$</span>
+              <input className="input mono" inputMode="decimal" value={form.promoPrice} onChange={(e) => set('promoPrice', e.target.value)} placeholder="Opcional" />
+            </div>
           </label>
         </div>
         {form.promoPrice && (
           <label className="field">
-            <span>Etiqueta de la promo</span>
+            <span className="field__label">Etiqueta de la promo</span>
             <input className="input" value={form.promoLabel} onChange={(e) => set('promoLabel', e.target.value)} maxLength={30} placeholder="Happy hour" />
           </label>
         )}
         <div className="field">
-          <span>Foto (opcional)</span>
-          <div className="row wrap">
-            {form.imageUrl && <img src={form.imageUrl} alt="" className="menu-thumb" />}
-            <div className="stack-sm grow">
+          <span className="field__label">Foto</span>
+          <div className="photo-field">
+            <span className="photo-field__preview">{form.imageUrl ? <img src={form.imageUrl} alt="" /> : <ImageSquare size={28} />}</span>
+            <div className="grow stack stack-2">
               <input
                 className="input"
-                placeholder="https://… o subí una foto"
-                value={form.imageUrl.startsWith('data:') ? '(foto subida)' : form.imageUrl}
+                placeholder="https://…"
+                value={uploaded ? 'Foto subida desde este equipo' : form.imageUrl}
                 onChange={(e) => set('imageUrl', e.target.value)}
-                disabled={form.imageUrl.startsWith('data:')}
+                disabled={uploaded}
               />
               <div className="row">
-                <label className="btn btn-secondary btn-sm">
+                <label className="btn btn--outline btn--sm">
                   Subir foto
                   <input
                     type="file"
@@ -272,7 +309,7 @@ function ItemForm({ item, categories, onClose }: { item: MenuItemDTO | null; cat
                   />
                 </label>
                 {form.imageUrl && (
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('imageUrl', '')}>
+                  <button type="button" className="text-btn" onClick={() => set('imageUrl', '')}>
                     Quitar
                   </button>
                 )}
