@@ -167,3 +167,34 @@ describe('administración (US12)', () => {
     expect(m.staff.avgPosnetResponseSeconds).toBe(30);
   });
 });
+
+describe('métricas de consumo', () => {
+  it('qué se pide, a qué hora, cómo se paga y cuántos se sientan por mesa', () => {
+    const { domain, join, order, admin, db } = setup();
+    const [fede, meli, tomi] = [join('Fede'), join('Meli'), join('Tomi')];
+    order(fede, ['Pinta IPA', 2]);
+    order(meli, ['Pinta IPA'], ['Papas fritas']);
+    order(tomi, ['Papas fritas']);
+    domain.diners.startSplit(fede, 1);
+    domain.diners.confirmPayment(fede, domain.diners.chooseMethod(fede, 'MERCADO_PAGO').id);
+    domain.staff.closeSession(fede.sessionId);
+    const other = domain.diners.join(db.tables[1]!.qrToken, 'Sofi').diner;
+    order(other, ['Doble carne']);
+    domain.diners.startSplit(other, 1);
+    domain.diners.chooseMethod(other, 'POSNET');
+    domain.staff.confirmPosnet(admin, domain.staff.posnetAlerts()[0]!.paymentId);
+
+    const c = domain.metrics().consumption;
+    expect(c.topItems[0]).toMatchObject({ name: 'Pinta IPA', quantity: 3, tables: 1, category: 'Cervezas tiradas' });
+    expect(c.topItems[1]).toMatchObject({ name: 'Papas fritas', quantity: 2 });
+    // El reloj de los tests está a las 23:30 UTC = 20:30 en Argentina.
+    expect(c.byHour[20]).toEqual({ hour: 20, items: 6, orders: 4 });
+    expect(c.methods.map((m) => m.method)).toEqual(['MERCADO_PAGO', 'POSNET']);
+    expect(c.methods[0]!.amount).toBe(3 * 620000 + 2 * 890000);
+    expect(c.partySize.avg).toBe(2);
+    expect(c.partySize.distribution.find((d) => d.size === '3')!.tables).toBe(1);
+    expect(c.perPerson.avgItems).toBe(6 / 4);
+    const mesa1 = c.perTable.find((t) => t.number === 1)!;
+    expect(mesa1).toMatchObject({ visits: 1, avgDiners: 3, topItem: 'Pinta IPA', revenue: 3 * 620000 + 2 * 890000 });
+  });
+});

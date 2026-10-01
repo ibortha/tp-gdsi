@@ -122,7 +122,11 @@ Panel → **Métricas** (solo ADMIN), calculadas con los datos reales (`server/d
 | Eficiencia del personal | Tiempo promedio de pedido a entrega y tiempo de respuesta a los pedidos de Posnet |
 | Tasa de incidentes o errores | Reservas vencidas + pagos anulados + ítems cancelados, cada 100 pagos iniciados |
 
-`npm run seed:demo` simula tres noches de uso (con las mismas reglas de la app) para mostrar el tablero con datos.
+Además, la pestaña **Consumo** muestra lo más pedido (por producto y por categoría), las unidades pedidas por hora
+(hora de Argentina), los medios de pago por monto, cuántas personas se sientan por mesa y un resumen por mesa
+(`server/domain/consumption.ts`).
+
+`npm run seed:demo` simula una semana de almuerzos y cenas (con las mismas reglas de la app) para mostrar el tablero con datos.
 
 ## 6. Próximos pasos sugeridos
 

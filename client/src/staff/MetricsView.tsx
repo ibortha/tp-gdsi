@@ -1,13 +1,16 @@
 import { ChartLineUp } from '@phosphor-icons/react';
 import type { MetricsDTO } from '../../../shared/types.ts';
-import { Loader } from '../components/ui.tsx';
+import { useState } from 'react';
+import { Loader, Segmented } from '../components/ui.tsx';
+import { load, save } from '../lib/storage.ts';
+import { ConsumptionView } from './ConsumptionView.tsx';
 import { METHOD_LABEL, duration, money } from '../lib/format.ts';
 import { useDocumentTitle } from '../lib/hooks.ts';
 import { useStaffData } from './context.tsx';
 
 const percent = (v: number | null) => (v === null ? '—' : `${Math.round(v)}%`);
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+export function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="stat">
       <span className="stat__label">{label}</span>
@@ -44,22 +47,48 @@ function Bars({ rows, unit }: { rows: { label: string; value: number }[]; unit: 
   );
 }
 
+type Tab = 'consumo' | 'canvas';
+
 export function MetricsView() {
   useDocumentTitle('Métricas · Pedido Grupal');
   const { data: m } = useStaffData<MetricsDTO>('/api/admin/metrics');
+  const [tab, setTabState] = useState<Tab>(() => load<Tab>('pg:metrics-tab', 'consumo'));
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    save('pg:metrics-tab', next);
+  };
   if (!m) return <Loader />;
-  const empty = m.sessions.total === 0;
-  const paidCount = Object.values(m.adoption.paymentsByKind).reduce((a, b) => a + b, 0);
 
   return (
     <>
       <header className="s-head">
         <div className="stack stack-2">
-          <span className="eyebrow">Indicadores del Scope Canvas</span>
+          <span className="eyebrow">{tab === 'consumo' ? 'Qué, cuándo y cómo se consume' : 'Indicadores del Scope Canvas'}</span>
           <h1 className="display s-title">Métricas</h1>
         </div>
+        <div style={{ width: 320 }}>
+          <Segmented<Tab>
+            label="Tipo de métricas"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'consumo', label: 'Consumo' },
+              { value: 'canvas', label: 'Scope Canvas' },
+            ]}
+          />
+        </div>
       </header>
+      {tab === 'consumo' ? <ConsumptionView c={m.consumption} sessions={m.sessions.total} /> : <CanvasView m={m} />}
+    </>
+  );
+}
 
+function CanvasView({ m }: { m: MetricsDTO }) {
+  const empty = m.sessions.total === 0;
+  const paidCount = Object.values(m.adoption.paymentsByKind).reduce((a, b) => a + b, 0);
+
+  return (
+    <>
       {empty && (
         <div className="notice notice--split">
           <span className="notice__icon">

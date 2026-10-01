@@ -1,5 +1,6 @@
 // Métricas del Scope Canvas: tiempo de cierre de mesa, adopción de funciones, eficiencia del personal e incidentes.
 import type { MetricsDTO, PaymentKind, PaymentMethod } from '../../shared/types.ts';
+import { computeConsumption } from './consumption.ts';
 import { Ledger } from './ledger.ts';
 import type { DB } from './model.ts';
 
@@ -80,5 +81,6 @@ export function computeMetrics(db: DB): MetricsDTO {
       cancelledItems,
       ratePer100Payments: dinerPayments.length ? (incidents / dinerPayments.length) * 100 : null,
     },
+    consumption: computeConsumption(db, ledgers),
   };
 }

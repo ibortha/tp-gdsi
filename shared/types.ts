@@ -267,6 +267,30 @@ export interface MetricsDTO {
     /** Incidentes cada 100 pagos iniciados. */
     ratePer100Payments: number | null;
   };
+  consumption: ConsumptionDTO;
+}
+
+/** Qué se pide, cuándo, cómo se paga y cuántos se sientan por mesa (para entender el consumo del local). */
+export interface ConsumptionDTO {
+  /** Zona horaria con la que se agrupan los horarios. */
+  timeZone: string;
+  topItems: { name: string; category: string; quantity: number; revenue: Cents; tables: number }[];
+  byCategory: { name: string; quantity: number; revenue: Cents }[];
+  /** 24 posiciones, una por hora del día. */
+  byHour: { hour: number; items: number; orders: number }[];
+  methods: { method: PaymentMethod; payments: number; amount: Cents }[];
+  partySize: { avg: number | null; distribution: { size: string; tables: number }[] };
+  perPerson: { avgSpend: Cents | null; avgItems: number | null };
+  perTable: {
+    tableId: string;
+    number: number;
+    label: string;
+    visits: number;
+    avgDiners: number | null;
+    avgTicket: Cents | null;
+    topItem: string | null;
+    revenue: Cents;
+  }[];
 }
 
 export interface ApiErrorBody {

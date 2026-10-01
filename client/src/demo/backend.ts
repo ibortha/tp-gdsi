@@ -9,7 +9,7 @@ import { simulateHistory } from '../../../server/history.ts';
 import { DEMO_USERS, buildSeedDB } from '../../../server/seed-data.ts';
 import { ApiError, type RequestOptions } from '../lib/api.ts';
 
-const STORAGE_KEY = 'pg:demo:db:v1';
+const STORAGE_KEY = 'pg:demo:db:v2';
 export const SHOWCASE_TABLE = 4;
 
 // ---------- Datos de prueba ----------
@@ -17,7 +17,7 @@ export const SHOWCASE_TABLE = 4;
 /** Arma un local "en pleno servicio": historial para métricas y varias mesas en distintos momentos. */
 function buildScenario(): DB {
   const db = buildSeedDB();
-  simulateHistory(db, 3);
+  simulateHistory(db);
 
   let clock = Date.now() - 56 * 60_000;
   const d = createDomain(db, { now: () => new Date(clock) });
