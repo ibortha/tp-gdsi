@@ -7,7 +7,7 @@ import { IconContext } from '@phosphor-icons/react';
 import { MotionConfig } from 'motion/react';
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppToaster, ConfirmProvider, Loader } from './components/ui.tsx';
 import { DinerApp } from './diner/DinerApp.tsx';
 import './styles/index.css';
@@ -16,12 +16,22 @@ import './styles/index.css';
 const StaffApp = lazy(() => import('./staff/StaffApp.tsx').then((m) => ({ default: m.StaffApp })));
 const Landing = lazy(() => import('./Landing.tsx').then((m) => ({ default: m.Landing })));
 
+// Demo estática (npm run build:demo): rutas con "#" y una barra para cambiar de vista con datos de prueba.
+const DEMO = import.meta.env.MODE === 'demo';
+const Router = DEMO ? HashRouter : BrowserRouter;
+const DemoBar = DEMO ? lazy(() => import('./demo/DemoBar.tsx')) : null;
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MotionConfig reducedMotion="user">
       <IconContext.Provider value={{ size: 20, weight: 'regular' }}>
         <ConfirmProvider>
-          <BrowserRouter>
+          {DemoBar && (
+            <Suspense fallback={null}>
+              <DemoBar />
+            </Suspense>
+          )}
+          <Router>
             <Suspense fallback={<Loader />}>
               <Routes>
               <Route path="/" element={<Landing />} />
@@ -30,7 +40,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-          </BrowserRouter>
+          </Router>
           <AppToaster />
         </ConfirmProvider>
       </IconContext.Provider>

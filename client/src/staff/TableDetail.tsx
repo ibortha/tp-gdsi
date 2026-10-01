@@ -7,6 +7,7 @@ import { SliceBar, StatusLabel } from '../diner/TableTab.tsx';
 import { METHOD_LABEL, PAYMENT_STATUS_LABEL, clock, money, timeAgo } from '../lib/format.ts';
 import { useDocumentTitle, useNow } from '../lib/hooks.ts';
 import { toPeople } from '../lib/tones.ts';
+import { appHref } from '../lib/links.ts';
 import { useStaff, useStaffData } from './context.tsx';
 import { STATE_LABEL, pad2, tableState } from './TablesView.tsx';
 
@@ -69,7 +70,7 @@ export function TableDetail() {
           <Empty icon={<ForkKnife size={24} />} title="Mesa libre">
             Cuando alguien escanee el QR, sus pedidos aparecen acá en vivo.
             <div style={{ marginTop: 12 }}>
-              <a className="btn btn--outline btn--sm" href={`/m/${table.qrToken}`} target="_blank" rel="noreferrer">
+              <a className="btn btn--outline btn--sm" href={appHref(`/m/${table.qrToken}`)} target="_blank" rel="noreferrer">
                 Abrir como comensal <ArrowUpRight size={16} />
               </a>
             </div>

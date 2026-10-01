@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import type { TableSummaryDTO, VenueSettings } from '../../../shared/types.ts';
 import { CopyButton, Loader, LogoMark, QrCode, Switch, useAction, useConfirm } from '../components/ui.tsx';
 import { useDocumentTitle } from '../lib/hooks.ts';
+import { appHref, tableUrl } from '../lib/links.ts';
 import { useStaff, useStaffData } from './context.tsx';
 import { pad2 } from './TablesView.tsx';
 
@@ -37,8 +38,8 @@ export function TablesAdmin() {
   const [label, setLabel] = useState('');
   if (!tables || !venue) return <Loader />;
 
-  const base = venue.publicUrl || window.location.origin;
-  const urlOf = (t: TableSummaryDTO) => `${base}/m/${t.qrToken}`;
+  const base = tableUrl(venue.publicUrl, '').replace(/\/(#\/)?m\/$/, '');
+  const urlOf = (t: TableSummaryDTO) => tableUrl(venue.publicUrl, t.qrToken);
   const suggested = tables.reduce((m, t) => Math.max(m, t.number), 0) + 1;
 
   const print = (tableId: string | null) => {
@@ -119,7 +120,7 @@ export function TablesAdmin() {
                   onChange={(active) => run(() => call(`/api/admin/tables/${t.id}`, { method: 'PATCH', body: { active } }))}
                 />
                 <div className="row" style={{ gap: 2 }}>
-                  <a className="btn btn--ghost btn--icon btn--sm" href={`/m/${t.qrToken}`} target="_blank" rel="noreferrer" title="Abrir como comensal" aria-label="Abrir como comensal">
+                  <a className="btn btn--ghost btn--icon btn--sm" href={appHref(`/m/${t.qrToken}`)} target="_blank" rel="noreferrer" title="Abrir como comensal" aria-label="Abrir como comensal">
                     <ArrowUpRight size={16} />
                   </a>
                   <button className="btn btn--ghost btn--icon btn--sm" onClick={() => print(t.id)} title="Imprimir" aria-label="Imprimir">

@@ -18,7 +18,11 @@ export interface RequestOptions {
   staffToken?: string | null;
 }
 
+const DEMO = import.meta.env.MODE === 'demo';
+
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  // Demo estática: las mismas reglas de negocio corren en el navegador, sin servidor.
+  if (DEMO) return (await import('../demo/backend.ts')).demoFetch<T>(path, options);
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers['content-type'] = 'application/json';
   if (options.dinerToken) headers['x-diner-token'] = options.dinerToken;

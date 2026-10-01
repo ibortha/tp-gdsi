@@ -115,9 +115,13 @@ export function Landing() {
               calculadoras, sin el mozo esperando al costado.
             </p>
             <div className="row wrap" style={{ gap: 12 }}>
-              <a href="#probar" className="btn btn--accent btn--lg">
+              <button
+                type="button"
+                className="btn btn--accent btn--lg"
+                onClick={() => document.getElementById('probar')?.scrollIntoView({ behavior: 'smooth' })}
+              >
                 Probar como comensal <ArrowRight size={18} weight="bold" />
-              </a>
+              </button>
               <Link to="/staff" className="btn btn--lg l-btn-ghost">
                 Entrar al panel
               </Link>

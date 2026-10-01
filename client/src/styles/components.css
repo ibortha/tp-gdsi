@@ -1169,3 +1169,106 @@ button.slice--free:hover:not(:disabled) {
 .qr svg {
   justify-self: center;
 }
+
+/* ---------- Barra de la demo estática ---------- */
+
+.demo-bar {
+  position: relative;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 10px calc(4px) 12px;
+  padding-top: calc(4px + env(safe-area-inset-top));
+  background: var(--accent);
+  color: #fff7f0;
+  font-size: 13px;
+}
+
+.demo-bar__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.demo-bar__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: #fff7f0;
+  animation: live 2s infinite;
+}
+
+.demo-bar__select {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 420px;
+  margin-left: auto;
+}
+
+.demo-bar__label {
+  flex: none;
+  opacity: 0.85;
+}
+
+.demo-bar__select select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 30px 0 10px;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 9px;
+  background: rgb(0 0 0 / 14%);
+  color: #fff7f0;
+  font-size: 13px;
+  font-weight: 600;
+  appearance: none;
+  cursor: pointer;
+}
+
+.demo-bar__select select option,
+.demo-bar__select select optgroup {
+  color: #171512;
+  background: #fbf9f4;
+}
+
+.demo-bar__select > svg {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+}
+
+.demo-bar__reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 9px;
+  background: rgb(0 0 0 / 14%);
+  color: #fff7f0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.demo-bar__reset:hover {
+  background: rgb(0 0 0 / 24%);
+}
+
+@media (max-width: 520px) {
+  .demo-bar__label,
+  .demo-bar__reset-label {
+    display: none;
+  }
+}

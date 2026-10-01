@@ -60,7 +60,16 @@ Otros comandos:
 | `npm run typecheck` | Chequeo de tipos de servidor y cliente |
 | `npm run build` y `npm start` | Compila el cliente y sirve todo desde un único puerto (`http://localhost:3000`) |
 | `npm run seed` | Reinicia los datos de ejemplo (borra `data/db.json`) |
+| `npm run build:demo` | Genera la demo estática con datos de prueba en `dist/demo/` |
 | `npm run seed:demo` | Igual que `seed`, pero además simula 3 noches de uso para ver el tablero de métricas con datos |
+
+### Demo estática (sin servidor)
+
+`npm run build:demo` genera en `dist/demo/` una versión que se puede subir a cualquier hosting estático (GitHub
+Pages, Netlify, Vercel). Las reglas de negocio corren en el navegador con datos de prueba guardados en
+`localStorage`, y una barra arriba permite cambiar de vista: Fede, Meli o Tomi en la mesa 4, un comensal nuevo, el
+mozo o el ADMIN. Abrí dos pestañas para ver la sincronización en vivo entre comensales. Esa build es la que está
+publicada en la rama `main`.
 
 Variables de entorno opcionales: `PORT` (3000), `DATA_FILE` (`data/db.json`), `DEMO_MODE=false` (oculta los accesos
 de demo de la portada y del login).
