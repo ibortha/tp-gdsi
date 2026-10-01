@@ -124,7 +124,7 @@ describe('administración (US12)', () => {
   it('mesas: números únicos y QR regenerable', () => {
     const { domain, table } = setup();
     expect(() => domain.admin.createTable({ number: 1 })).toThrowError(/Ya existe la mesa 1/);
-    const created = domain.admin.createTable({ number: 11, label: 'Barra' });
+    const created = domain.admin.createTable({ number: 21, label: 'Barra' });
     const before = created.qrToken;
     domain.admin.regenerateQr(created.id);
     expect(created.qrToken).not.toBe(before);

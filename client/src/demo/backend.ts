@@ -9,7 +9,7 @@ import { simulateHistory } from '../../../server/history.ts';
 import { DEMO_USERS, buildSeedDB } from '../../../server/seed-data.ts';
 import { ApiError, type RequestOptions } from '../lib/api.ts';
 
-const STORAGE_KEY = 'pg:demo:db:v2';
+const STORAGE_KEY = 'pg:demo:db:v3';
 export const SHOWCASE_TABLE = 4;
 
 // ---------- Datos de prueba ----------
@@ -104,6 +104,17 @@ function buildScenario(): DB {
   const [vale, lu] = ['Vale', 'Lu'].map((n) => d.diners.join(qr(5), n).diner);
   order(vale!, ['Pinta Golden', 2], ['Papas fritas']);
   order(lu!, ['Limonada de la casa'], ['Veggie', 1, 'sin tomate']);
+
+  // 2do piso: un cumpleaños de 7 en la mesa larga y una pareja en la ventana.
+  const cumple = ['Mati', 'Juana', 'Pedro', 'Rocío', 'Bruno', 'Flor', 'Iván'].map((n) => d.diners.join(qr(12), n).diner);
+  order(cumple[0]!, ['Jarra IPA (1,5 L)', 2], ['Tabla de picada']);
+  order(cumple[3]!, ['Fugazzeta'], ['Muzzarella']);
+  order(cumple[5]!, ['Brownie con helado', 3, 'con velitas']);
+  const [ana, leo] = ['Ana', 'Leo'].map((n) => d.diners.join(qr(11), n).diner);
+  const m11 = [...order(ana!, ['Pinta Honey'], ['Veggie']), ...order(leo!, ['Pinta Stout'], ['Doble carne'])];
+  serve(...m11);
+  d.diners.claimItemsOf(ana!, ana!.id);
+  d.diners.confirmPayment(ana!, d.diners.chooseMethod(ana!, 'MERCADO_PAGO', 10).id);
 
   // Sesiones del staff ya iniciadas para el selector de vistas.
   d.staff.login(DEMO_USERS.mozo.email, DEMO_USERS.mozo.password);

@@ -97,7 +97,7 @@ export function TablesAdmin() {
           onChange={(e) => setNumber(e.target.value.replace(/\D/g, ''))}
           placeholder={`N.º ${suggested}`}
         />
-        <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Sector — Salón, Patio, Barra…" maxLength={40} aria-label="Sector" />
+        <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Sector — Salón, Patio, 2do piso…" maxLength={40} aria-label="Sector" />
         <button className="btn btn--outline" disabled={busy}>
           <Plus size={16} /> Agregar mesa
         </button>

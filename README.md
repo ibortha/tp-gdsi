@@ -19,8 +19,10 @@ US01–US12 y las métricas del Scope Canvas.
 
 | Mozo / ADMIN | |
 |---|---|
-| ![Salón](docs/img/15-salon.jpg) | ![Mesa](docs/img/16-mesa.jpg) |
-| Salón en vivo + alerta de Posnet | Pedidos, división y pagos de una mesa |
+| ![Salón](docs/img/15-salon.jpg) | ![2do piso](docs/img/15b-salon-2do-piso.jpg) |
+| Plano del salón en vivo + alerta de Posnet | Cambiá entre Salón, Patio y 2do piso, o pasá a vista tabla |
+| ![Mesa](docs/img/16-mesa.jpg) | |
+| Pedidos, división y pagos de una mesa | |
 | ![Comandas](docs/img/21-comandas.jpg) | ![QR](docs/img/24-qr.jpg) |
 | Comandas tipo ticket | Habladores de mesa con QR, listos para imprimir |
 
@@ -41,7 +43,7 @@ npm run dev          # API en :3000 + app en http://localhost:5173
 ```
 
 - Al arrancar por primera vez se crea `data/db.json` con un local de ejemplo (*Cervecería El Fondo*), su menú,
-  10 mesas y dos usuarios:
+  16 mesas (salón, patio y 2do piso) y dos usuarios:
 
   | Rol | Email | Contraseña |
   |---|---|---|
@@ -103,7 +105,7 @@ de demo de la portada y del login).
   opcional.
 
 **Mozo / ADMIN (panel web, responsive)**
-- Mapa de mesas con estado (libre, ocupada, pagando, pide Posnet, saldada) y saldo pendiente.
+- Salón como plano dibujado (Salón y Patio en planta baja, 2do piso arriba) o como tabla, con el estado de cada mesa (libre, ocupada, pagando, pide Posnet, saldada), las sillas ocupadas y el saldo pendiente.
 - Detalle de mesa: pedidos (avanzar estado, cancelar), división en curso, pagos (anular un pago declarado que no
   llegó), cobrar el saldo libre por Posnet o efectivo, cerrar la mesa.
 - Comandas por mesa con tiempo de espera, para cocina y salón.

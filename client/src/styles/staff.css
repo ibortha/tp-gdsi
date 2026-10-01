@@ -1469,3 +1469,436 @@
 .data .num-col {
   text-align: right;
 }
+
+/* ---------- Salón: sectores, vista mapa / tabla ---------- */
+
+.salon-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.zones {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: 16px;
+  background: var(--paper-2);
+}
+
+.zones::-webkit-scrollbar {
+  display: none;
+}
+
+.zone-tab {
+  position: relative;
+  flex: none;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.zone-tab__bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgb(23 21 18 / 10%),
+    0 0 0 1px rgb(23 21 18 / 4%);
+}
+
+.zone-tab__text {
+  position: relative;
+  display: grid;
+  gap: 1px;
+}
+
+.zone-tab__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.zone-tab:not(.is-active) .zone-tab__title {
+  color: var(--ink-2);
+}
+
+.zone-tab__sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.zone-tab__alert {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--accent);
+  animation: tile-pulse 1.8s ease-in-out infinite;
+}
+
+.floor-map {
+  overflow-x: auto;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--paper);
+}
+
+.floor-map svg {
+  display: block;
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+}
+
+/* Elementos fijos del plano */
+.fp-floor {
+  fill: var(--card);
+}
+
+.fp-floor--out {
+  fill: color-mix(in srgb, var(--ok-soft) 55%, var(--card));
+}
+
+.fp-wall {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fp-window {
+  fill: none;
+  stroke: var(--split);
+  stroke-width: 2.5;
+}
+
+.fp-fixture,
+.fp-sofa {
+  fill: var(--paper-3);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.fp-sofa {
+  fill: var(--paper-2);
+}
+
+.fp-stool {
+  fill: var(--paper-2);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.fp-kitchen {
+  fill: var(--paper-3);
+  stroke: var(--ink-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+.fp-pass {
+  stroke: var(--ink-3);
+  stroke-width: 3;
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+}
+
+.fp-room {
+  fill: var(--paper-2);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.fp-stairs rect {
+  fill: var(--paper-2);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.fp-stairs line {
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.fp-door {
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.fp-plant circle {
+  fill: color-mix(in srgb, var(--ok) 28%, var(--card));
+}
+
+.fp-plant .fp-plant__leaf {
+  fill: color-mix(in srgb, var(--ok) 48%, var(--card));
+}
+
+.fp-deck-line {
+  stroke: color-mix(in srgb, var(--ok) 14%, transparent);
+  stroke-width: 1;
+}
+
+.fp-fence {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 3;
+  stroke-dasharray: 1 9;
+  stroke-linecap: round;
+}
+
+.fp-pergola {
+  stroke: var(--line-strong);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.fp-pergola--beam {
+  stroke-width: 4;
+}
+
+.fp-planter {
+  fill: color-mix(in srgb, var(--ok) 25%, var(--card));
+}
+
+.fp-fire {
+  fill: var(--paper-3);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.fp-fire__core {
+  fill: color-mix(in srgb, var(--accent) 70%, var(--warn));
+  opacity: 0.85;
+}
+
+.fp-rail {
+  stroke: var(--ink-2);
+  stroke-width: 3;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+}
+
+.fp-label {
+  fill: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Mesas en el plano */
+.ft {
+  cursor: pointer;
+  outline: none;
+}
+
+.ft__top {
+  fill: var(--card);
+  stroke: var(--line-strong);
+  stroke-width: 2;
+  transition:
+    fill 0.3s,
+    stroke 0.2s,
+    stroke-width 0.2s;
+}
+
+.ft:hover .ft__top,
+.ft:focus-visible .ft__top {
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.ft__chair {
+  fill: var(--card);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+  transition: fill 0.3s;
+}
+
+.ft__chair.is-taken {
+  fill: var(--ink-2);
+  stroke: none;
+}
+
+.ft__num {
+  fill: var(--ink-3);
+  font-family: var(--font-display);
+  font-size: 40px;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+
+.ft__mini {
+  fill: color-mix(in srgb, var(--paper) 82%, transparent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.ft__caption {
+  fill: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.ft--free .ft__caption {
+  fill: var(--ink-3);
+}
+
+.ft--busy .ft__top {
+  fill: var(--ink);
+  stroke: var(--ink);
+}
+
+.ft--paying .ft__top {
+  fill: var(--warn);
+  stroke: var(--warn);
+}
+
+.ft--posnet .ft__top {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.ft--settled .ft__top {
+  fill: var(--ok);
+  stroke: var(--ok);
+}
+
+.ft:not(.ft--free) .ft__num {
+  fill: var(--paper);
+}
+
+.ft--paying .ft__chair.is-taken {
+  fill: var(--warn);
+}
+
+.ft--posnet .ft__chair.is-taken {
+  fill: var(--accent);
+}
+
+.ft--settled .ft__chair.is-taken {
+  fill: var(--ok);
+}
+
+.ft__pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ft-pulse 1.8s ease-out infinite;
+}
+
+@keyframes ft-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+.ft__extra {
+  fill: var(--accent);
+}
+
+.ft__extra-text {
+  fill: #fff7f0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.map-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-legend__item i {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 5px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+
+.map-legend__item.is-busy i {
+  background: var(--ink);
+  box-shadow: none;
+}
+
+.map-legend__item.is-paying i {
+  background: var(--warn);
+  box-shadow: none;
+}
+
+.map-legend__item.is-posnet i {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.map-legend__item.is-settled i {
+  background: var(--ok);
+  box-shadow: none;
+}
+
+.map-legend__item.is-chair i {
+  width: 14px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--ink-2);
+  box-shadow: none;
+}
+
+.map-hint {
+  display: none;
+  margin: -12px 0 0;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 720px) {
+  .map-hint {
+    display: block;
+  }
+
+  .floor-map {
+    margin-inline: -4px;
+    padding: 10px;
+  }
+}

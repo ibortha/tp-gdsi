@@ -71,12 +71,18 @@ export function simulateHistory(db: DB, days = 7) {
 
   const services = [
     { name: 'almuerzo' as const, startUtcHour: 15.5, tables: 4, spreadMin: 70, rounds: 1 },
-    { name: 'cena' as const, startUtcHour: 23, tables: 8, spreadMin: 200, rounds: 3 },
+    { name: 'cena' as const, startUtcHour: 23, tables: 11, spreadMin: 200, rounds: 3 },
   ];
 
   for (let day = days; day >= 1; day--) {
     for (const service of services) {
-      const tables = db.tables.filter((t) => t.active).slice(0, service.tables + rand(3));
+      // Un subconjunto de mesas distinto en cada servicio (el 2do piso se usa menos al mediodía).
+      const pool = db.tables.filter((t) => t.active && (service.name === 'cena' || t.label !== '2do piso'));
+      const tables = pool
+        .map((t) => ({ t, k: rand(1000) }))
+        .sort((a, b) => a.k - b.k)
+        .slice(0, service.tables + rand(4))
+        .map((x) => x.t);
       for (const table of tables) {
         // Cada mesa llega en un momento distinto del servicio (las mesas se atienden en paralelo).
         clock = utcMidnight(day) + service.startUtcHour * 3600_000 + rand(service.spreadMin) * 60_000;

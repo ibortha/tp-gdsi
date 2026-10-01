@@ -1,4 +1,4 @@
-// Datos iniciales de ejemplo: una cervecería con su menú, 10 mesas y dos usuarios del staff.
+// Datos iniciales de ejemplo: una cervecería con su menú, 16 mesas en dos pisos y dos usuarios del staff.
 import { emptyDB, type DB, type MenuItem } from './domain/model.ts';
 import { hashPassword, newId, newQrToken } from './domain/security.ts';
 
@@ -93,11 +93,12 @@ export function buildSeedDB(): DB {
       });
     }
   });
-  for (let number = 1; number <= 10; number++) {
+  // Planta baja: salón (1–6) y patio (7–10). Primer piso: 2do piso (11–16).
+  for (let number = 1; number <= 16; number++) {
     db.tables.push({
       id: newId(),
       number,
-      label: number <= 6 ? 'Salón' : 'Patio',
+      label: number <= 6 ? 'Salón' : number <= 10 ? 'Patio' : '2do piso',
       qrToken: newQrToken(),
       active: true,
       deleted: false,
