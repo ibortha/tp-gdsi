@@ -11,6 +11,8 @@ Arriba de todo hay una barra roja de **Demo** con un selector **"Ver como"**:
   compartida y pagar por ítems (entero, ½, ⅓) o dividir el total.
 - **Sentarme en la mesa (libre)**: entrar como un comensal nuevo, como si escanearas el QR.
 - **Mozo / ADMIN**: el panel del local (salón, comandas, cobros con Posnet, carta, mesas y QR, métricas).
+- **ADMIN · Métricas → Consumo**: lo más pedido, pedidos por horario, medios de pago, personas por mesa y un
+  resumen por mesa, con una semana de datos de prueba.
 - **Reiniciar** (↺): vuelve a los datos de prueba originales.
 
 Los cambios se guardan en el navegador (localStorage). Si abrís dos pestañas —por ejemplo Fede en una y el mozo en
